@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.springapp.rideshare.dto.LoginRequest;
 import com.springapp.rideshare.dto.RegisterRequest;
 import com.springapp.rideshare.entity.User;
+import com.springapp.rideshare.security.JwtService;
 import com.springapp.rideshare.service.AuthService;
 
 @RestController
@@ -24,16 +25,22 @@ public class AuthController {
         return authService.register(
                 request.getEmail(),
                 request.getPassword(),
-                request.getRole()
+                request.getName(),
+                request.getContact()
         );
     }
 
-    @PostMapping("/login")
-    public User login(@RequestBody LoginRequest request) {
+    @Autowired
+    private JwtService jwtService;
 
-        return authService.login(
+    @PostMapping("/login")
+    public String login(@RequestBody LoginRequest request) {
+
+        User user = authService.login(
                 request.getEmail(),
                 request.getPassword()
         );
+
+        return jwtService.generateToken(user.getEmail());
     }
 }

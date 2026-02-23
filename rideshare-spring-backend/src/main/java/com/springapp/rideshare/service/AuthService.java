@@ -16,19 +16,19 @@ public class AuthService {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
-    public User register(String email, String password, String role) {
+    public User register(String email, String password,
+            String name, String contact) {
 
         if (userRepository.findByEmail(email).isPresent()) {
             throw new RuntimeException("Email already exists");
         }
 
         User user = new User();
+
         user.setEmail(email);
-
-        // 🔥 NEVER store raw passwords
         user.setPassword(passwordEncoder.encode(password));
-
-        user.setRole(role);
+        user.setName(name);
+        user.setContact(contact);
 
         return userRepository.save(user);
     }
