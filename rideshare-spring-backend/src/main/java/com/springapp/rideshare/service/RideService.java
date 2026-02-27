@@ -29,4 +29,8 @@ public class RideService {
     public List<Ride> searchRides(String origin, String destination) {
         return rideRepository.findByOriginAndDestination(origin, destination);
     }
+
+    public List<Ride> getMyRides(User driver) {
+        return rideRepository.findByDriverId(driver.getId());
+    }
 }

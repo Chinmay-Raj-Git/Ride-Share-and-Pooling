@@ -51,4 +51,12 @@ public class RideController {
 
         return rideService.searchRides(origin, destination);
     }
+
+    @GetMapping("/my")
+    public List<Ride> getMyRides() {
+
+        User currentUser = SecurityUtils.getCurrentUser();
+
+        return rideService.getMyRides(currentUser);
+    }
 }
