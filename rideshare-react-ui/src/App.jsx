@@ -1,10 +1,16 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { useState } from "react";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Landing from "./pages/Landing";
 import Rides from "./pages/Rides";
+import Auth from "./components/Auth";
+import Dashboard from "./components/Dashboard";
 
 function App() {
+  const [isLoggedIn, setIsLoggedIn] =
+    useState(!!localStorage.getItem("token"));
+
   return (
     <BrowserRouter className="m-0 p-0 w-screen h-screen flex items-center justify-center">
 
@@ -16,6 +22,11 @@ function App() {
       </Routes>
 
     </BrowserRouter>
+
+    // <div className="bg-gray-900 text-white w-screen h-screen">
+    //     <Dashboard />
+    //     <Auth />
+    // </div>
   );
 }
 

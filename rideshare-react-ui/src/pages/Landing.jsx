@@ -1,3 +1,4 @@
+import { Link, useNavigate } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
 
 const NAV_LINKS = ["How it Works", "Features", "Why RideShare", "Join Us"];
@@ -59,6 +60,8 @@ function AnimSection({ children, className = "", delay = 0 }) {
 }
 
 export default function RideShareLanding() {
+  const navigate = useNavigate();
+
   const [activeTab, setActiveTab] = useState("post");
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
@@ -68,6 +71,36 @@ export default function RideShareLanding() {
     window.addEventListener("scroll", onScroll);
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
+
+  const handlePostRide = () => {
+    const token = localStorage.getItem("token");
+
+    if (!token) {
+      navigate("/login");
+      return;
+    }
+
+    navigate("/rides?mode=post");
+  };
+
+  const handleFindRide = () => {
+    navigate("/rides");
+  };
+
+  const handleDriverStart = () => {
+    const token = localStorage.getItem("token");
+
+    if (!token) {
+      navigate("/register");
+      return;
+    }
+
+    navigate("/rides?mode=post");
+  };
+
+  const handleRiderStart = () => {
+    navigate("/rides");
+  };
 
   const steps = activeTab === "post" ? STEPS_POST : STEPS_GET;
 
@@ -133,10 +166,14 @@ export default function RideShareLanding() {
           </div>
 
           <div className="hidden md:flex items-center gap-3">
-            <button className="text-sm text-zinc-300 hover:text-white px-4 py-2 transition-colors">Sign In</button>
-            <button className="bg-yellow text-zinc-900 font-display font-700 text-sm px-5 py-2.5 rounded-full glow-btn">
-              Get Started
-            </button>
+            <Link to="/login">
+              <button className="text-sm text-zinc-300 hover:text-white px-4 py-2 transition-colors">Sign In</button>
+            </Link>
+            <Link to="/rides">
+              <button className="bg-yellow text-zinc-900 font-display font-700 text-sm px-5 py-2.5 rounded-full glow-btn">
+                Get Started
+              </button>
+            </Link>
           </div>
 
           <button onClick={() => setMenuOpen(!menuOpen)} className="md:hidden text-zinc-300">
@@ -179,10 +216,12 @@ export default function RideShareLanding() {
             </p>
 
             <div className="flex flex-col sm:flex-row gap-3 mb-10">
-              <button className="bg-yellow text-zinc-900 font-display font-700 px-7 py-4 rounded-full text-base glow-btn">
+              <button onClick={handlePostRide}
+               className="bg-yellow text-zinc-900 font-display font-700 px-7 py-4 rounded-full text-base glow-btn">
                 🚗 Post a Ride
               </button>
-              <button className="border border-zinc-600 text-zinc-200 hover:border-yellow hover:text-yellow font-display font-600 px-7 py-4 rounded-full text-base transition-all duration-200">
+              <button onClick={handleFindRide} 
+               className="border border-zinc-600 text-zinc-200 hover:border-yellow hover:text-yellow font-display font-600 px-7 py-4 rounded-full text-base transition-all duration-200">
                 🔍 Find a Ride
               </button>
             </div>
@@ -230,7 +269,8 @@ export default function RideShareLanding() {
                 </div>
               ))}
 
-              <button className="w-full mt-2 border border-yellow border-opacity-30 text-yellow text-sm py-2.5 rounded-xl hover:bg-yellow hover:bg-opacity-10 transition-colors font-medium">
+              <button onClick={handleFindRide} 
+               className="w-full mt-2 border border-yellow border-opacity-30 text-yellow text-sm py-2.5 rounded-xl hover:bg-yellow hover:bg-opacity-10 transition-colors font-medium">
                 View All Rides →
               </button>
             </div>
@@ -406,10 +446,12 @@ export default function RideShareLanding() {
               Join over 180,000 drivers and riders who've already made the switch. Your next journey starts here.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <button className="bg-yellow text-zinc-900 font-display font-700 px-8 py-4 rounded-full text-base glow-btn">
+              <button onClick={handleDriverStart}
+               className="bg-yellow text-zinc-900 font-display font-700 px-8 py-4 rounded-full text-base glow-btn">
                 🚗 Start as a Driver
               </button>
-              <button className="border border-zinc-700 hover:border-yellow text-zinc-300 hover:text-yellow font-display font-600 px-8 py-4 rounded-full text-base transition-all duration-200">
+              <button onClick={handleRiderStart}
+               className="border border-zinc-700 hover:border-yellow text-zinc-300 hover:text-yellow font-display font-600 px-8 py-4 rounded-full text-base transition-all duration-200">
                 🎒 Start as a Rider
               </button>
             </div>

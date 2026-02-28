@@ -12,15 +12,6 @@ export default function Navbar() {
         </h1>
       </div>
 
-      {/* Navigation Links */}
-      <div className="flex gap-6 text-sm">
-        <Link to="/login" className="hover:text-yellow-400 transition">
-          Login
-        </Link>
-        <Link to="/register" className="hover:text-yellow-400 transition">
-          Register
-        </Link>
-      </div>
     </nav>
   );
 }
