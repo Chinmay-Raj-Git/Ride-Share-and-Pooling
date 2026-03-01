@@ -19,7 +19,6 @@ export const apiRequest = async (endpoint, method = "GET", body = null) => {
 
     if (!response.ok) {
         throw new Error("Request failed");
-        alert(response);
     }
 
     return response;
