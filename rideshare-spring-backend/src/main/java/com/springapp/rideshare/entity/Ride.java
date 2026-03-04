@@ -28,6 +28,8 @@ public class Ride {
 
     private double price;
 
+    private double distanceKm;
+
     @ManyToOne
     @JoinColumn(name = "driver_id")
     private User driver;
@@ -60,4 +62,8 @@ public class Ride {
 
     public Vehicle getVehicle() {return vehicle; }
     public void setVehicle(Vehicle vehicle) { this.vehicle = vehicle; }
+
+    public double getDistanceKm() { return distanceKm; }
+
+    public void setDistanceKm(double distanceKm) { this.distanceKm = distanceKm; }
 }
