@@ -24,4 +24,8 @@ public class RideRequest {
 
     public double getPrice() { return price; }
     public void setPrice(double price) { this.price = price; }
+
+
+    private Long vehicleId;
+    public Long getVehicleId() { return vehicleId; }
 }

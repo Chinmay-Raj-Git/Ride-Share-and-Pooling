@@ -1,7 +1,14 @@
 package com.springapp.rideshare.entity;
 
-import jakarta.persistence.*;
 import java.time.LocalDateTime;
+
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
 
 @Entity
 @Table(name = "rides")
@@ -46,4 +53,11 @@ public class Ride {
 
     public User getDriver() { return driver; }
     public void setDriver(User driver) { this.driver = driver; }
+    
+    @ManyToOne
+    @JoinColumn(name = "vehicle_id")
+    private Vehicle vehicle;
+
+    public Vehicle getVehicle() {return vehicle; }
+    public void setVehicle(Vehicle vehicle) { this.vehicle = vehicle; }
 }
