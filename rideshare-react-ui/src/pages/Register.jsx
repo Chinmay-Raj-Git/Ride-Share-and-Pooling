@@ -63,7 +63,13 @@ export default function RegisterPage() {
         name: form.name,
         contact: form.contact,
       });
-      navigate("/login");
+
+      // ── NEW: persist email so OtpVerification page can read it ──
+      localStorage.setItem("pendingEmail", form.email);
+
+      // ── NEW: go to OTP page instead of login ──
+      navigate("/verify-otp");
+
     } catch (err) {
       setError("Registration failed. Please try again.");
     } finally {
