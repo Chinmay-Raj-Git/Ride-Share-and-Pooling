@@ -68,7 +68,6 @@ export default function PostRidePage() {
     else if (form.origin.trim().toLowerCase() === form.destination.trim().toLowerCase()) { e.destination = "Origin and destination can't be the same"; valid = false; }
     if (!form.departureTime) { e.departureTime = "Departure time is required"; valid = false; }
     else if (new Date(form.departureTime) <= new Date()) { e.departureTime = "Departure must be in the future"; valid = false; }
-    if (!form.price || isNaN(form.price) || +form.price <= 0) { e.price = "Enter a valid price greater than 0"; valid = false; }
     if (!form.vehicleId) { e.vehicleId = "Please select a vehicle for this ride"; valid = false; }
     setErrors(e);
     return valid;
@@ -263,7 +262,7 @@ export default function PostRidePage() {
                 <div>
                   <label>Available Seats</label>
                   <div style={{ display: "flex", gap: "0.4rem" }}>
-                    {[1, 2, 3, 4].map((n) => (
+                    {[1, 2, 3, 4, 5, 6, 7].map((n) => (
                       <button key={n} type="button"
                         className={`seat-btn ${form.availableSeats === n ? "selected" : "unselected"}`}
                         onClick={() => setForm((f) => ({ ...f, availableSeats: n }))}>
@@ -273,20 +272,23 @@ export default function PostRidePage() {
                   </div>
                   <p style={{ color: "#52525b", fontSize: "0.73rem", marginTop: "0.45rem" }}>How many empty seats are you offering?</p>
                 </div>
-                <div>
-                  <label>Price per Seat</label>
+                <div className="opacity-50 cursor-not-allowed">
+                  <label>Price per km</label>
                   <div style={{ position: "relative" }}>
                     <span style={{ position: "absolute", left: "0.9rem", top: "50%", transform: "translateY(-50%)", color: "#71717a", fontSize: "0.9rem", fontFamily: "Syne, sans-serif", fontWeight: 700, pointerEvents: "none" }}>₹</span>
                     <input
-                      className={`input-field${errors.price ? " input-error" : ""}`}
+                      className={`cursor-not-allowed input-field${errors.price ? " input-error" : ""}`}
                       style={{ paddingLeft: "1.8rem" }}
-                      type="number" min="0" step="0.5" placeholder="0.00"
-                      value={form.price}
+                      type="number" min="0" step="0.5" 
+                      // value={form.price} --> if user is allowed to change price, this should be uncommented
+                      value={8}
+                      disabled
                       onChange={setField("price")}
                     />
                   </div>
                   {errors.price && <p className="field-error">{errors.price}</p>}
-                  <p style={{ color: "#52525b", fontSize: "0.73rem", marginTop: "0.45rem" }}>Set a fair price to attract riders</p>
+                  {/* <p style={{ color: "#52525b", fontSize: "0.73rem", marginTop: "0.45rem" }}>Set a fair price to attract riders</p> */}
+                  <p style={{ color: "#52525b", fontSize: "0.73rem", marginTop: "0.45rem" }}>8 per km (suggested)</p>
                 </div>
               </div>
             </div>

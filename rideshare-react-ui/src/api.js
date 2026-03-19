@@ -16,7 +16,7 @@ export const apiRequest = async (endpoint, method = "GET", body = null) => {
     console.log(options)
 
     const response = await fetch(`${BASE_URL}${endpoint}`, options);
-
+    
     if (!response.ok) {
         throw new Error("Request failed");
     }

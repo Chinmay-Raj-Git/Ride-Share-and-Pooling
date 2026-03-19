@@ -42,7 +42,7 @@ function StatusTag({ status }) {
   );
 }
 
-function SeatDots({ seats, max = 4 }) {
+function SeatDots({ seats, max = 7 }) {
   return (
     <div style={{ display: "flex", gap: 3 }}>
       {[...Array(max)].map((_, i) => (
@@ -111,7 +111,7 @@ function RideModal({ ride, onClose, onBooked }) {
           {[
             ["🕐", "Departure", `${date}, ${time.substring(0, 5)}`],
             ["💺", "Seats Left", `${ride.availableSeats} available`],
-            ["🚗", "Vehicle", ride.car || "—"],
+            ["🚗", "Vehicle", ride.vehicle.model || "—"],
           ].map(([icon, label, val]) => (
             <div key={label} style={{ background: "rgba(255,255,255,0.03)", borderRadius: 10, padding: "0.6rem", border: "1px solid rgba(255,255,255,0.05)" }}>
               <div style={{ fontSize: "0.9rem", marginBottom: "0.2rem" }}>{icon}</div>
@@ -165,7 +165,12 @@ export default function RidesPage() {
   const loadRides = async () => {
     try {
       const res = await apiRequest("/api/rides");
-      if (res.ok) setRides((await res.json()).map(sanitizeRide));
+      if (res.ok){ 
+        const data = await res.json();
+        console.log("Raw rides data:", data);
+        setRides((data).map(sanitizeRide));
+
+      }
       else console.error("Failed to fetch rides:", await res.text());
     } catch (err) {
       console.error("Failed to load rides:", err);
