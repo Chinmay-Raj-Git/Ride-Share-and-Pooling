@@ -1,6 +1,5 @@
 package com.springapp.rideshare.service;
 
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -10,9 +9,11 @@ import org.springframework.stereotype.Service;
 import com.springapp.rideshare.dto.PassengerResponse;
 import com.springapp.rideshare.entity.Booking;
 import com.springapp.rideshare.entity.Ride;
+import com.springapp.rideshare.entity.RouteStop;
 import com.springapp.rideshare.entity.User;
 import com.springapp.rideshare.repository.BookingRepository;
 import com.springapp.rideshare.repository.RideRepository;
+import com.springapp.rideshare.repository.RouteStopRepository;
 import com.springapp.rideshare.security.SecurityUtils;
 
 import jakarta.transaction.Transactional;
@@ -26,32 +27,59 @@ public class BookingService {
     @Autowired
     private RideRepository rideRepository;
 
-    @Transactional
-    public Booking bookRide(Long rideId, User passenger) {
+    @Autowired
+    private RouteStopRepository routeStopRepository;
 
-        Ride ride = rideRepository.findRideForUpdateById(rideId)
+    @Transactional
+    public Booking bookRide(Long rideId, Long pickupStopId, Long dropStopId) {
+
+        User user = SecurityUtils.getCurrentUser();
+
+        Ride ride = rideRepository.findById(rideId)
                 .orElseThrow(() -> new RuntimeException("Ride not found"));
 
-        if (ride.getDriver().getId().equals(passenger.getId())) {
+        RouteStop pickup = routeStopRepository.findById(pickupStopId)
+                .orElseThrow(() -> new RuntimeException("Pickup stop not found"));
+
+        RouteStop drop = routeStopRepository.findById(dropStopId)
+                .orElseThrow(() -> new RuntimeException("Drop stop not found"));
+
+        if (ride.getDriver().getId().equals(user.getId())) {
             throw new RuntimeException("Driver cannot book own ride");
+        }
+
+        if (!pickup.getRide().getId().equals(rideId)
+                || !drop.getRide().getId().equals(rideId)) {
+            throw new RuntimeException("Stops do not belong to this ride");
+        }
+
+        if (pickup.getId().equals(drop.getId())) {
+            throw new RuntimeException("Pickup and drop cannot be same");
+        }
+
+        if (pickup.getStopOrder() >= drop.getStopOrder()) {
+            throw new RuntimeException("Invalid route selection");
+        }
+
+        boolean alreadyBooked = bookingRepository.existsByRideAndPassenger(ride, user);
+        if (alreadyBooked) {
+            throw new RuntimeException("You have already booked this ride");
         }
 
         if (ride.getAvailableSeats() <= 0) {
             throw new RuntimeException("No seats available");
         }
 
-        if (bookingRepository.existsByRideIdAndPassengerId(rideId, passenger.getId())) {
-            throw new RuntimeException("Already booked");
-        }
-
-        ride.setAvailableSeats(ride.getAvailableSeats() - 1);
-        // rideRepository.save(ride); --> no longer needed, because this method has been
-        // made @transactional
-
         Booking booking = new Booking();
         booking.setRide(ride);
-        booking.setPassenger(passenger);
-        booking.setBookingTime(LocalDateTime.now());
+        booking.setPassenger(user);
+        booking.setPickupStop(pickup);
+        booking.setDropStop(drop);
+
+        // decrementing seat
+        ride.setAvailableSeats(ride.getAvailableSeats() - 1);
+
+        rideRepository.save(ride);
 
         return bookingRepository.save(booking);
     }
@@ -93,10 +121,10 @@ public class BookingService {
 
         return bookings.stream()
                 .map(booking -> new PassengerResponse(
-                        booking.getPassenger().getId(),
-                        booking.getPassenger().getName(),
-                        booking.getPassenger().getContact(),
-                        booking.getBookingTime()))
+                booking.getPassenger().getId(),
+                booking.getPassenger().getName(),
+                booking.getPassenger().getContact(),
+                booking.getBookingTime()))
                 .collect(Collectors.toList());
     }
 }

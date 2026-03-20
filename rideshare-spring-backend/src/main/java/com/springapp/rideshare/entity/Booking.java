@@ -2,7 +2,10 @@ package com.springapp.rideshare.entity;
 
 import java.time.LocalDateTime;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -10,6 +13,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 @Entity
 @Table(name = "bookings")
 public class Booking {
@@ -28,16 +32,59 @@ public class Booking {
     @JoinColumn(name = "passenger_id")
     private User passenger;
 
-    public Booking() {}
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "pickup_stop_id", nullable = false)
+    private RouteStop pickupStop;
 
-    public Long getId() { return id; }
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "drop_stop_id", nullable = false)
+    private RouteStop dropStop;
 
-    public LocalDateTime getBookingTime() { return bookingTime; }
-    public void setBookingTime(LocalDateTime bookingTime) { this.bookingTime = bookingTime; }
+    public Booking() {
+    }
 
-    public Ride getRide() { return ride; }
-    public void setRide(Ride ride) { this.ride = ride; }
+    public Long getId() {
+        return id;
+    }
 
-    public User getPassenger() { return passenger; }
-    public void setPassenger(User passenger) { this.passenger = passenger; }
+    public LocalDateTime getBookingTime() {
+        return bookingTime;
+    }
+
+    public void setBookingTime(LocalDateTime bookingTime) {
+        this.bookingTime = bookingTime;
+    }
+
+    public Ride getRide() {
+        return ride;
+    }
+
+    public void setRide(Ride ride) {
+        this.ride = ride;
+    }
+
+    public User getPassenger() {
+        return passenger;
+    }
+
+    public void setPassenger(User passenger) {
+        this.passenger = passenger;
+    }
+
+    public RouteStop getPickupStop() {
+        return pickupStop;
+    }
+
+    public void setPickupStop(RouteStop pickupStop) {
+        this.pickupStop = pickupStop;
+    }
+
+    public RouteStop getDropStop() {
+        return dropStop;
+    }
+
+    public void setDropStop(RouteStop dropStop) {
+        this.dropStop = dropStop;
+    }
+
 }

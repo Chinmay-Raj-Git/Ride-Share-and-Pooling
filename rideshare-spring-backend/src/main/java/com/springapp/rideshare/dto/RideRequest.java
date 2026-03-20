@@ -1,6 +1,7 @@
 package com.springapp.rideshare.dto;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 public class RideRequest {
 
@@ -28,4 +29,11 @@ public class RideRequest {
 
     private Long vehicleId;
     public Long getVehicleId() { return vehicleId; }
+    public void setVehicleId(Long vehicleId) { this.vehicleId = vehicleId; }
+
+    private List<RouteStopRequest> stops;
+    public List<RouteStopRequest> getStops() { return stops; }
+    public void setStops(List<RouteStopRequest> stops) { this.stops = stops; }
+
+
 }

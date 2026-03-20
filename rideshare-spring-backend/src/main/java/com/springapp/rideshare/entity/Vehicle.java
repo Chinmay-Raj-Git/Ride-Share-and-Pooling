@@ -1,5 +1,8 @@
 package com.springapp.rideshare.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -8,6 +11,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 @Entity
 @Table(name = "vehicles")
 public class Vehicle {
@@ -25,6 +29,7 @@ public class Vehicle {
 
     @ManyToOne
     @JoinColumn(name = "driver_id", nullable = false)
+    @JsonIgnore
     private User driver;
 
     public Vehicle() {
