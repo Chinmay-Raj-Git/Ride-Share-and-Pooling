@@ -3,6 +3,8 @@ package com.springapp.rideshare.controller;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -35,17 +37,12 @@ public class RideController {
 
     @PostMapping("/create")
     public Ride createRide(@RequestBody RideRequest request) {
-
         User currentUser = SecurityUtils.getCurrentUser();
-
         Ride ride = new Ride();
-
         ride.setOrigin(request.getOrigin());
         ride.setDestination(request.getDestination());
         ride.setDepartureTime(request.getDepartureTime());
         ride.setAvailableSeats(request.getAvailableSeats());
-        // ride.setPrice(request.getPrice());  server-side price computation
-
         return rideService.createRide(ride, currentUser, request);
     }
 
@@ -58,20 +55,41 @@ public class RideController {
     public List<RideSearchResult> searchRides(
             @RequestParam String origin,
             @RequestParam String destination) {
-
         return rideService.searchRides(origin, destination);
     }
 
     @GetMapping("/my")
     public List<Ride> getMyRides() {
-
         User currentUser = SecurityUtils.getCurrentUser();
-
         return rideService.getMyRides(currentUser);
     }
 
     @GetMapping("/{rideId}/passengers")
     public List<PassengerResponse> getPassengers(@PathVariable Long rideId) {
         return bookingService.getPassengersForRide(rideId);
+    }
+
+    // ── Task 3: Driver marks ride as completed ────────────────────────────────
+    @PostMapping("/{rideId}/complete")
+    public ResponseEntity<?> completeRide(@PathVariable Long rideId) {
+        try {
+            User currentUser = SecurityUtils.getCurrentUser();
+            Ride ride = rideService.completeRide(rideId, currentUser);
+            return ResponseEntity.ok(ride);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    // ── Task 2: Driver cancels ride — all passengers emailed ─────────────────
+    @DeleteMapping("/{rideId}/cancel")
+    public ResponseEntity<?> cancelRide(@PathVariable Long rideId) {
+        try {
+            User currentUser = SecurityUtils.getCurrentUser();
+            rideService.cancelRide(rideId, currentUser);
+            return ResponseEntity.ok("Ride cancelled. All passengers have been notified.");
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
     }
 }

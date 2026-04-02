@@ -75,8 +75,8 @@ function BookingModal({ result, onClose, onBooked }) {
 
       // Step 3: Create Razorpay order
       const orderRes = await apiRequest(`/api/payments/create-order?bookingId=${bookingData.id}`, "POST");
-      console.log("Order res: "+orderRes)
       if (!orderRes.ok) {
+        console.log("Order res: "+orderRes)
         setError("Failed to create payment order.");
         setBooking(false);
         return;

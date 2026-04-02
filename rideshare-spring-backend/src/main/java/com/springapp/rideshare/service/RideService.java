@@ -19,6 +19,8 @@ import com.springapp.rideshare.repository.RideRepository;
 import com.springapp.rideshare.repository.RouteStopRepository;
 import com.springapp.rideshare.repository.VehicleRepository;
 
+import jakarta.transaction.Transactional;
+
 @Service
 public class RideService {
 
@@ -29,11 +31,12 @@ public class RideService {
     private final GeocodingService geocodingService;
     private final BookingRepository bookingRepository;
     private final FareService fareService;
+    private final BookingService bookingService;
 
     public RideService(RideRepository rideRepository, VehicleRepository vehicleRepository,
             RouteStopRepository routeStopRepository, DistanceService distanceService,
             GeocodingService geocodingService, BookingRepository bookingRepository,
-            FareService fareService) {
+            FareService fareService, BookingService bookingService) {
         this.rideRepository = rideRepository;
         this.vehicleRepository = vehicleRepository;
         this.routeStopRepository = routeStopRepository;
@@ -41,6 +44,7 @@ public class RideService {
         this.geocodingService = geocodingService;
         this.bookingRepository = bookingRepository;
         this.fareService = fareService;
+        this.bookingService = bookingService;
     }
 
     public Ride createRide(Ride ride, User driver, RideRequest request) {
@@ -51,7 +55,6 @@ public class RideService {
             throw new RuntimeException("At least source and destination stop required");
         }
 
-        // Validate and set vehicle
         Vehicle vehicle = vehicleRepository.findById(request.getVehicleId())
                 .orElseThrow(() -> new RuntimeException("Vehicle not found"));
 
@@ -66,7 +69,6 @@ public class RideService {
         ride.setDriver(driver);
         ride.setVehicle(vehicle);
 
-        // Geocode all stops and build RouteStop list with cumulative distances
         double cumulativeKm = 0.0;
         double[] prevCoords = null;
 
@@ -94,7 +96,6 @@ public class RideService {
         double totalDistanceKm = cumulativeKm;
         ride.setDistanceKm(totalDistanceKm);
 
-        // Price is per-km rate applied to total distance; override any client-provided price
         double price = Math.ceil(totalDistanceKm * 8.0);
         ride.setPrice(price);
 
@@ -123,20 +124,20 @@ public class RideService {
         List<RideSearchResult> result = new ArrayList<>();
 
         for (Long rideId : sourceMap.keySet()) {
-            if (!destMap.containsKey(rideId)) {
-                continue;
-            }
+            if (!destMap.containsKey(rideId)) continue;
 
             for (RouteStop src : sourceMap.get(rideId)) {
                 for (RouteStop dst : destMap.get(rideId)) {
                     if (src.getStopOrder() < dst.getStopOrder()) {
                         Ride ride = src.getRide();
+                        // Only show ACTIVE rides in search
+                        if (!"ACTIVE".equals(ride.getStatus())) continue;
                         int overlapping = bookingRepository.countOverlappingBookings(
                                 rideId, src.getStopOrder(), dst.getStopOrder());
                         int availableSeats = ride.getAvailableSeats() - overlapping;
                         double fare = fareService.calculateSegmentFare(ride, src, dst);
                         result.add(new RideSearchResult(ride, src, dst, availableSeats, fare));
-                        break; // one result per ride
+                        break;
                     }
                 }
             }
@@ -147,5 +148,36 @@ public class RideService {
 
     public List<Ride> getMyRides(User driver) {
         return rideRepository.findByDriverId(driver.getId());
+    }
+
+    // ── Task 3: Mark ride as completed (driver only) ──────────────────────────
+    @Transactional
+    public Ride completeRide(Long rideId, User driver) {
+        Ride ride = rideRepository.findById(rideId)
+                .orElseThrow(() -> new RuntimeException("Ride not found"));
+        if (!ride.getDriver().getId().equals(driver.getId())) {
+            throw new RuntimeException("Only the driver can mark this ride as completed");
+        }
+        if (!"ACTIVE".equals(ride.getStatus())) {
+            throw new RuntimeException("Only active rides can be marked as completed");
+        }
+        ride.setStatus("COMPLETED");
+        return rideRepository.save(ride);
+    }
+
+    // ── Task 2: Cancel ride — notify all passengers ───────────────────────────
+    @Transactional
+    public void cancelRide(Long rideId, User driver) {
+        Ride ride = rideRepository.findById(rideId)
+                .orElseThrow(() -> new RuntimeException("Ride not found"));
+        if (!ride.getDriver().getId().equals(driver.getId())) {
+            throw new RuntimeException("Only the driver can cancel this ride");
+        }
+        if (!"ACTIVE".equals(ride.getStatus())) {
+            throw new RuntimeException("Only active rides can be cancelled");
+        }
+        ride.setStatus("CANCELLED");
+        rideRepository.save(ride);
+        bookingService.notifyPassengersOfRideCancellation(ride);
     }
 }

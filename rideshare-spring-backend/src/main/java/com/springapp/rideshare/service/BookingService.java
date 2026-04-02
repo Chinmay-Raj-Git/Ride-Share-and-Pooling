@@ -33,6 +33,9 @@ public class BookingService {
     @Autowired
     private FareService fareService;
 
+    @Autowired
+    private EmailService emailService;
+
     @Transactional
     public Booking bookRide(Long rideId, Long pickupStopId, Long dropStopId) {
 
@@ -79,9 +82,25 @@ public class BookingService {
         booking.setPrice(segmentPrice);
         booking.setBookingTime(java.time.LocalDateTime.now());
 
-        // ride.setAvailableSeats(ride.getAvailableSeats() - 1);
-        // rideRepository.save(ride); seat availability is checked via overlapping bookings, so we don't need to update it here
-        return bookingRepository.save(booking);
+        Booking saved = bookingRepository.save(booking);
+
+        // Notify driver of new booking
+        try {
+            emailService.sendBookingCreatedToDriver(
+                ride.getDriver().getEmail(),
+                ride.getDriver().getName(),
+                user.getName(),
+                ride.getOrigin(),
+                ride.getDestination(),
+                ride.getDepartureTime().toString(),
+                segmentPrice
+            );
+        } catch (Exception e) {
+            // Email failure must not break booking
+            System.err.println("Failed to send booking notification email: " + e.getMessage());
+        }
+
+        return saved;
     }
 
     public List<Booking> getMyBookings(User passenger) {
@@ -98,7 +117,25 @@ public class BookingService {
             throw new RuntimeException("Not authorized to cancel this booking");
         }
 
+        Ride ride = booking.getRide();
+        String passengerName = passenger.getName();
+        String driverEmail = ride.getDriver().getEmail();
+        String driverName = ride.getDriver().getName();
+        String origin = ride.getOrigin();
+        String destination = ride.getDestination();
+        String departureTime = ride.getDepartureTime().toString();
+
         bookingRepository.delete(booking);
+
+        // Notify driver of cancellation
+        try {
+            emailService.sendBookingCancelledToDriver(
+                driverEmail, driverName,
+                passengerName, origin, destination, departureTime
+            );
+        } catch (Exception e) {
+            System.err.println("Failed to send cancellation notification email: " + e.getMessage());
+        }
     }
 
     public List<PassengerResponse> getPassengersForRide(Long rideId) {
@@ -121,5 +158,26 @@ public class BookingService {
                 booking.getPassenger().getContact(),
                 booking.getBookingTime()))
                 .collect(Collectors.toList());
+    }
+
+    // Called by RideService when driver cancels a ride — notifies all passengers
+    @Transactional
+    public void notifyPassengersOfRideCancellation(Ride ride) {
+        List<Booking> bookings = bookingRepository.findByRideId(ride.getId());
+        for (Booking booking : bookings) {
+            try {
+                emailService.sendRideCancelledToPassenger(
+                    booking.getPassenger().getEmail(),
+                    booking.getPassenger().getName(),
+                    ride.getDriver().getName(),
+                    ride.getOrigin(),
+                    ride.getDestination(),
+                    ride.getDepartureTime().toString()
+                );
+            } catch (Exception e) {
+                System.err.println("Failed to notify passenger " +
+                    booking.getPassenger().getEmail() + ": " + e.getMessage());
+            }
+        }
     }
 }

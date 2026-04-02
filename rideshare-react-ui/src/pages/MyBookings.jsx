@@ -6,6 +6,104 @@ import { PageShell, LoadingScreen, AlertBanner } from "../components/ui";
 import { useCurrentUser } from "../hooks/useCurrentUser";
 import { APP_STYLES } from "../styles";
 
+// ─── Load Razorpay script dynamically ────────────────────────────────────────
+const loadRazorpay = () =>
+  new Promise((resolve) => {
+    if (window.Razorpay) return resolve(true);
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+
+// ─── Star Rating Input ────────────────────────────────────────────────────────
+function StarRating({ value, onChange }) {
+  const [hovered, setHovered] = useState(0);
+  return (
+    <div style={{ display: "flex", gap: "0.2rem" }}>
+      {[1, 2, 3, 4, 5].map((s) => (
+        <button
+          key={s}
+          onClick={() => onChange(s)}
+          onMouseEnter={() => setHovered(s)}
+          onMouseLeave={() => setHovered(0)}
+          style={{
+            background: "none", border: "none", cursor: "pointer", padding: "0.1rem",
+            fontSize: "1.3rem",
+            color: s <= (hovered || value) ? "#e7e247" : "#3f3f46",
+            transition: "color 0.12s",
+          }}
+        >
+          ★
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// ─── Review Form (shown on past + paid bookings) ──────────────────────────────
+function ReviewForm({ rideId }) {
+  const [rating, setRating] = useState(0);
+  const [comment, setComment] = useState("");
+  const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [err, setErr] = useState("");
+
+  const handleSubmit = async () => {
+    if (rating === 0) { setErr("Please select a star rating."); return; }
+    setSubmitting(true);
+    setErr("");
+    try {
+      const res = await apiRequest("/api/reviews", "POST", { rideId, rating, comment });
+      if (res.ok) {
+        setSubmitted(true);
+      } else {
+        const msg = await res.text();
+        setErr(msg || "Failed to submit review.");
+      }
+    } catch {
+      setErr("Something went wrong.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (submitted) {
+    return (
+      <div style={{ marginTop: "0.85rem", paddingTop: "0.75rem", borderTop: "1px solid rgba(255,255,255,0.05)", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+        <span style={{ color: "#86efac", fontSize: "0.8rem" }}>✅ Review submitted — thanks for your feedback!</span>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ marginTop: "0.85rem", paddingTop: "0.75rem", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+      <p style={{ color: "#71717a", fontSize: "0.75rem", margin: "0 0 0.5rem 0" }}>
+        Rate your driver:
+      </p>
+      <StarRating value={rating} onChange={setRating} />
+      <input
+        className="input-field"
+        placeholder="Leave a comment (optional)"
+        value={comment}
+        onChange={(e) => setComment(e.target.value)}
+        style={{ fontSize: "0.8rem", padding: "0.4rem 0.75rem", marginTop: "0.5rem", marginBottom: "0.4rem" }}
+      />
+      {err && <p style={{ color: "#fca5a5", fontSize: "0.75rem", margin: "0 0 0.4rem 0" }}>{err}</p>}
+      <button
+        className="glow-btn"
+        style={{ padding: "0.35rem 0.85rem", fontSize: "0.78rem", display: "flex", alignItems: "center", gap: "0.4rem" }}
+        onClick={handleSubmit}
+        disabled={submitting}
+      >
+        {submitting && <span style={{ width: 11, height: 11, border: "2px solid rgba(26,26,22,0.4)", borderTopColor: "#1a1a16", borderRadius: "50%", animation: "spin 0.7s linear infinite", display: "inline-block" }} />}
+        {submitting ? "Submitting…" : "Submit Review"}
+      </button>
+    </div>
+  );
+}
+
 // ─── Confirm Cancel Modal ─────────────────────────────────────────────────────
 function ConfirmModal({ onConfirm, onCancel, cancelling }) {
   return (
@@ -46,10 +144,16 @@ export default function MyBookingsPage() {
   const [flash, setFlash] = useState(null);
   const [confirmId, setConfirmId] = useState(null);
   const [cancelling, setCancelling] = useState(false);
+  const [payingId, setPayingId] = useState(null);
 
   const { user, loading } = useCurrentUser(true);
   const navigate = useNavigate();
   const now = new Date();
+
+  const showFlash = (msg, type = "ok") => {
+    setFlash({ msg, type });
+    setTimeout(() => setFlash(null), 5000);
+  };
 
   useEffect(() => {
     const loadBookings = async () => {
@@ -67,37 +171,99 @@ export default function MyBookingsPage() {
     loadBookings();
   }, []);
 
+  // ── Razorpay payment handler ───────────────────────────────────────────────
+  const handlePayNow = async (bookingId, price) => {
+    setPayingId(bookingId);
+    try {
+      const loaded = await loadRazorpay();
+      if (!loaded) { showFlash("Failed to load payment gateway. Check your connection.", "err"); return; }
+
+      const orderRes = await apiRequest(`/api/payments/create-order?bookingId=${bookingId}`, "POST");
+      if (!orderRes.ok) {
+        const msg = await orderRes.text();
+        showFlash(msg || "Could not create payment order.", "err");
+        return;
+      }
+
+      const order = await orderRes.json();
+
+      const options = {
+        key: import.meta.env.VITE_RAZORPAY_KEY_ID,
+        amount: order.amount,
+        currency: order.currency,
+        name: "RideShare",
+        description: `Booking #${bookingId}`,
+        order_id: order.orderId,
+        handler: async (response) => {
+          try {
+            const verifyRes = await apiRequest(
+              `/api/payments/verify` +
+              `?razorpayOrderId=${response.razorpay_order_id}` +
+              `&razorpayPaymentId=${response.razorpay_payment_id}` +
+              `&razorpaySignature=${response.razorpay_signature}`,
+              "POST"
+            );
+            if (verifyRes.ok) {
+              setBookings((bs) =>
+                bs.map((b) => b.id === bookingId ? { ...b, paymentStatus: "PAID" } : b)
+              );
+              showFlash("Payment successful! Your booking is confirmed.", "ok");
+            } else {
+              showFlash("Payment received but verification failed. Contact support.", "err");
+            }
+          } catch {
+            showFlash("Verification request failed. Contact support.", "err");
+          }
+        },
+        prefill: {
+          name: user?.name || "",
+          email: user?.email || "",
+        },
+        theme: { color: "#e7e247" },
+        modal: {
+          ondismiss: () => showFlash("Payment cancelled.", "err"),
+        },
+      };
+
+      new window.Razorpay(options).open();
+    } catch (err) {
+      showFlash("Something went wrong: " + err.message, "err");
+    } finally {
+      setPayingId(null);
+    }
+  };
+
+  // ── Cancel booking handler ─────────────────────────────────────────────────
   const handleCancel = async () => {
     setCancelling(true);
     try {
       const res = await apiRequest(`/api/bookings/cancel/${confirmId}`, "DELETE");
       if (res.ok) {
         setBookings((bs) => bs.filter((b) => b.id !== confirmId));
-        setFlash({ msg: "Booking cancelled. Seat returned to driver.", type: "ok" });
+        showFlash("Booking cancelled. Seat returned to driver.", "ok");
       } else {
-        setFlash({ msg: "Failed to cancel booking.", type: "err" });
+        showFlash("Failed to cancel booking.", "err");
       }
     } catch {
-      setFlash({ msg: "Something went wrong.", type: "err" });
+      showFlash("Something went wrong.", "err");
     } finally {
       setCancelling(false);
       setConfirmId(null);
-      setTimeout(() => setFlash(null), 4000);
     }
   };
 
   const processed = useMemo(() => {
     let result = bookings.map((b) => ({ ...b, deptDate: new Date(b.ride?.departureTime) }));
     if (filter === "upcoming") result = result.filter((b) => b.deptDate >= now);
-    if (filter === "past") result = result.filter((b) => b.deptDate < now);
-    if (sortBy === "newest") result = [...result].sort((a, z) => new Date(z.bookingTime) - new Date(a.bookingTime));
-    else if (sortBy === "oldest") result = [...result].sort((a, z) => new Date(a.bookingTime) - new Date(z.bookingTime));
+    if (filter === "past")     result = result.filter((b) => b.deptDate < now);
+    if (sortBy === "newest")   result = [...result].sort((a, z) => new Date(z.bookingTime) - new Date(a.bookingTime));
+    else if (sortBy === "oldest")    result = [...result].sort((a, z) => new Date(a.bookingTime) - new Date(z.bookingTime));
     else if (sortBy === "departure") result = [...result].sort((a, z) => a.deptDate - z.deptDate);
     return result;
   }, [bookings, filter, sortBy]);
 
   const upcomingCount = bookings.filter((b) => new Date(b.ride?.departureTime) >= now).length;
-  const totalSpent = bookings.reduce((s, b) => s + (b.price || 0), 0);
+  const totalSpent    = bookings.reduce((s, b) => s + (b.price || 0), 0);
 
   if (loading || bookingsLoading) return (
     <>
@@ -192,12 +358,12 @@ export default function MyBookingsPage() {
             {processed.map((booking) => {
               const ride = booking.ride;
               const isUpcoming = booking.deptDate >= now;
-              const bookDate = new Date(booking.bookingTime);
-              const isPaid = booking.paymentStatus === "PAID";
+              const bookDate   = new Date(booking.bookingTime);
+              const isPaid     = booking.paymentStatus === "PAID";
+              const isRideCompleted = ride?.status === "COMPLETED";
 
-              // Pickup and drop stop names
               const pickupName = booking.pickupStop?.locationName || "—";
-              const dropName = booking.dropStop?.locationName || "—";
+              const dropName   = booking.dropStop?.locationName   || "—";
 
               return (
                 <div
@@ -219,12 +385,8 @@ export default function MyBookingsPage() {
                         <div style={{ width: 9, height: 9, background: "#e7e247", borderRadius: 2 }} />
                       </div>
                       <div style={{ flex: 1 }}>
-                        <div style={{ color: "#a1a1aa", fontSize: "0.8rem", marginBottom: "0.2rem" }}>
-                          {pickupName}
-                        </div>
-                        <div style={{ color: "#f4f4f5", fontSize: "0.92rem", fontWeight: 600, fontFamily: "Syne, sans-serif", marginBottom: "0.5rem" }}>
-                          {dropName}
-                        </div>
+                        <div style={{ color: "#a1a1aa", fontSize: "0.8rem", marginBottom: "0.2rem" }}>{pickupName}</div>
+                        <div style={{ color: "#f4f4f5", fontSize: "0.92rem", fontWeight: 600, fontFamily: "Syne, sans-serif", marginBottom: "0.5rem" }}>{dropName}</div>
                         {ride?.driver && (
                           <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
                             <div style={{ width: 24, height: 24, background: "rgba(231,226,71,0.14)", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "Syne, sans-serif", fontWeight: 700, color: "#e7e247", fontSize: "0.7rem", flexShrink: 0 }}>
@@ -260,34 +422,48 @@ export default function MyBookingsPage() {
                           BK-{String(booking.id).padStart(5, "0")}
                         </span>
                       </div>
-                      {/* Payment status */}
                       <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
                         <span style={{ fontSize: "0.75rem" }}>💳</span>
-                        <span style={{
-                          fontSize: "0.72rem", fontWeight: 500,
-                          color: isPaid ? "#86efac" : "#fde68a",
-                        }}>
+                        <span style={{ fontSize: "0.72rem", fontWeight: 500, color: isPaid ? "#86efac" : "#fde68a" }}>
                           {isPaid ? "Paid" : "Payment Pending"}
                         </span>
                       </div>
                     </div>
 
-                    {/* Price + status + action */}
+                    {/* Price + status + actions */}
                     <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "0.6rem", flexShrink: 0 }}>
                       <span style={{
                         borderRadius: 6, fontSize: "0.7rem", fontWeight: 500, padding: "0.18rem 0.55rem",
-                        background: isUpcoming ? "rgba(34,197,94,0.12)" : "rgba(113,113,122,0.1)",
-                        color: isUpcoming ? "#86efac" : "#71717a",
-                        border: `1px solid ${isUpcoming ? "rgba(34,197,94,0.2)" : "rgba(113,113,122,0.15)"}`,
+                        background: isRideCompleted ? "rgba(99,102,241,0.12)" : isUpcoming ? "rgba(34,197,94,0.12)" : "rgba(113,113,122,0.1)",
+                        color: isRideCompleted ? "#a5b4fc" : isUpcoming ? "#86efac" : "#71717a",
+                        border: `1px solid ${isRideCompleted ? "rgba(99,102,241,0.25)" : isUpcoming ? "rgba(34,197,94,0.2)" : "rgba(113,113,122,0.15)"}`,
                       }}>
-                        {isUpcoming ? "Upcoming" : "Completed"}
+                        {isRideCompleted ? "✅ Completed" : isUpcoming ? "Upcoming" : "Past"}
                       </span>
+
                       <div style={{ textAlign: "right" }}>
                         <div style={{ fontFamily: "Syne, sans-serif", fontWeight: 800, fontSize: "1.2rem", color: "#e7e247" }}>
                           ₹{booking.price?.toFixed(2) ?? "—"}
                         </div>
                         <div style={{ color: "#52525b", fontSize: "0.7rem" }}>segment fare</div>
                       </div>
+
+                      {/* Pay Now button — for upcoming + unpaid */}
+                      {isUpcoming && !isPaid && (
+                        <button
+                          className="glow-btn"
+                          style={{ padding: "0.4rem 0.85rem", fontSize: "0.78rem", display: "flex", alignItems: "center", gap: "0.4rem" }}
+                          onClick={() => handlePayNow(booking.id, booking.price)}
+                          disabled={payingId === booking.id}
+                        >
+                          {payingId === booking.id && (
+                            <span style={{ width: 11, height: 11, border: "2px solid rgba(26,26,22,0.4)", borderTopColor: "#1a1a16", borderRadius: "50%", animation: "spin 0.7s linear infinite", display: "inline-block" }} />
+                          )}
+                          {payingId === booking.id ? "Opening…" : "💳 Pay Now"}
+                        </button>
+                      )}
+
+                      {/* Cancel button — upcoming only */}
                       {isUpcoming && (
                         <button className="danger-btn" style={{ padding: "0.4rem 0.85rem" }} onClick={() => setConfirmId(booking.id)}>
                           Cancel Booking
@@ -296,14 +472,19 @@ export default function MyBookingsPage() {
                     </div>
                   </div>
 
-                  {/* Confirmation strip */}
+                  {/* Bottom strip */}
                   {isUpcoming && (
                     <div style={{ marginTop: "0.85rem", paddingTop: "0.75rem", borderTop: "1px solid rgba(255,255,255,0.05)", display: "flex", alignItems: "center", gap: "0.5rem" }}>
                       <div style={{ width: 6, height: 6, background: isPaid ? "#22c55e" : "#fde68a", borderRadius: "50%" }} />
                       <span style={{ color: "#52525b", fontSize: "0.75rem" }}>
-                        {isPaid ? "Confirmed · Check your email for ride details" : "Payment pending · Complete payment to confirm seat"}
+                        {isPaid ? "Confirmed · Check your email for ride details" : "Payment pending · Complete payment to confirm your seat"}
                       </span>
                     </div>
+                  )}
+
+                  {/* Review form — show for completed rides that were paid */}
+                  {isRideCompleted && isPaid && (
+                    <ReviewForm rideId={ride?.id} />
                   )}
                 </div>
               );

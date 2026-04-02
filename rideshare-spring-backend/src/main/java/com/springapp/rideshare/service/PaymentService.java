@@ -30,24 +30,36 @@ public class PaymentService {
     @Transactional
     public JSONObject createOrder(Long bookingId) throws Exception {
         Booking booking = bookingRepository.findById(bookingId)
-                .orElseThrow(() -> new RuntimeException("Booking not found"));
+                .orElseThrow(() -> new RuntimeException("Booking not found with id: " + bookingId));
+
+        if (booking.getPrice() == null || booking.getPrice() <= 0) {
+            throw new RuntimeException("Booking price is invalid or not set");
+        }
+
+        if ("PAID".equals(booking.getPaymentStatus())) {
+            throw new RuntimeException("Booking is already paid");
+        }
 
         RazorpayClient client = new RazorpayClient(keyId, keySecret);
 
+        // Convert rupees to paise (Razorpay requires integer paise)
+        int amountInPaise = (int) Math.round(booking.getPrice() * 100);
+
         JSONObject orderRequest = new JSONObject();
-        orderRequest.put("amount", (int) (booking.getPrice() * 100)); // paise
+        orderRequest.put("amount", amountInPaise);
         orderRequest.put("currency", "INR");
         orderRequest.put("receipt", "booking_" + bookingId);
 
         Order order = client.orders.create(orderRequest);
 
-        booking.setRazorpayOrderId(order.get("id"));
+        booking.setRazorpayOrderId(order.get("id").toString());
         bookingRepository.save(booking);
 
+        // Build response — use toString() to avoid ClassCastException (Razorpay returns Integer for amount)
         JSONObject response = new JSONObject();
-        response.put("orderId", (String) order.get("id"));
-        response.put("amount", (String) order.get("amount"));
-        response.put("currency", (String) order.get("currency"));
+        response.put("orderId", order.get("id").toString());
+        response.put("amount", amountInPaise);          // always return the int we sent
+        response.put("currency", "INR");
         response.put("bookingId", bookingId);
         return response;
     }
