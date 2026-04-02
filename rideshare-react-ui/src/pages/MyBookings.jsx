@@ -19,7 +19,9 @@ function ConfirmModal({ onConfirm, onCancel, cancelling }) {
           The seat will be released back to the driver. This cannot be undone.
         </p>
         <div style={{ display: "flex", gap: "0.75rem" }}>
-          <button className="ghost-btn" style={{ flex: 1, padding: "0.7rem" }} onClick={onCancel}>Keep Booking</button>
+          <button className="ghost-btn" style={{ flex: 1, padding: "0.7rem" }} onClick={onCancel}>
+            Keep Booking
+          </button>
           <button
             className="danger-btn"
             style={{ flex: 1, padding: "0.7rem", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem" }}
@@ -95,7 +97,7 @@ export default function MyBookingsPage() {
   }, [bookings, filter, sortBy]);
 
   const upcomingCount = bookings.filter((b) => new Date(b.ride?.departureTime) >= now).length;
-  const totalSpent    = bookings.reduce((s, b) => s + (b.ride?.price || 0), 0);
+  const totalSpent = bookings.reduce((s, b) => s + (b.price || 0), 0);
 
   if (loading || bookingsLoading) return (
     <>
@@ -112,9 +114,13 @@ export default function MyBookingsPage() {
       <div style={{ maxWidth: 1000, margin: "0 auto", padding: "2.5rem 1.5rem" }}>
         {/* Header */}
         <div className="fade-up" style={{ marginBottom: "1.75rem" }}>
-          <p style={{ fontSize: "0.72rem", color: "#e7e247", letterSpacing: "0.1em", textTransform: "uppercase", margin: "0 0 0.3rem 0" }}>Your Journeys</p>
+          <p style={{ fontSize: "0.72rem", color: "#e7e247", letterSpacing: "0.1em", textTransform: "uppercase", margin: "0 0 0.3rem 0" }}>
+            Your Journeys
+          </p>
           <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", flexWrap: "wrap", gap: "1rem" }}>
-            <h1 style={{ fontFamily: "Syne, sans-serif", fontWeight: 800, fontSize: "2rem", color: "#f4f4f5", lineHeight: 1.15, margin: 0 }}>My Bookings</h1>
+            <h1 style={{ fontFamily: "Syne, sans-serif", fontWeight: 800, fontSize: "2rem", color: "#f4f4f5", lineHeight: 1.15, margin: 0 }}>
+              My Bookings
+            </h1>
             <button className="glow-btn" style={{ padding: "0.6rem 1.25rem", fontSize: "0.85rem" }} onClick={() => navigate("/rides")}>
               + Book Another Ride
             </button>
@@ -124,8 +130,8 @@ export default function MyBookingsPage() {
         {/* Stats */}
         <div className="fade-up" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(155px, 1fr))", gap: "0.75rem", marginBottom: "1.5rem" }}>
           {[
-            ["📋", bookings.length,              "Total Bookings"],
-            ["🟢", upcomingCount,                "Upcoming"],
+            ["📋", bookings.length, "Total Bookings"],
+            ["🟢", upcomingCount, "Upcoming"],
             ["📅", bookings.length - upcomingCount, "Past Rides"],
             ["💰", `₹${totalSpent.toFixed(2)}`, "Total Spent"],
           ].map(([icon, val, lbl]) => (
@@ -184,22 +190,28 @@ export default function MyBookingsPage() {
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem" }}>
             {processed.map((booking) => {
-              const ride       = booking.ride;
+              const ride = booking.ride;
               const isUpcoming = booking.deptDate >= now;
-              const bookDate   = new Date(booking.bookingTime);
+              const bookDate = new Date(booking.bookingTime);
+              const isPaid = booking.paymentStatus === "PAID";
+
+              // Pickup and drop stop names
+              const pickupName = booking.pickupStop?.locationName || "—";
+              const dropName = booking.dropStop?.locationName || "—";
 
               return (
                 <div
                   key={booking.id}
                   style={{
-                    background: "rgba(61,59,48,0.28)", border: "1px solid rgba(231,226,71,0.09)", backdropFilter: "blur(10px)", borderRadius: 14,
-                    padding: "1.25rem", transition: "transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease",
+                    background: "rgba(61,59,48,0.28)", border: "1px solid rgba(231,226,71,0.09)",
+                    backdropFilter: "blur(10px)", borderRadius: 14, padding: "1.25rem",
+                    transition: "transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease",
                   }}
                   onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 12px 36px rgba(0,0,0,0.35)"; e.currentTarget.style.borderColor = "rgba(231,226,71,0.2)"; }}
                   onMouseLeave={(e) => { e.currentTarget.style.transform = ""; e.currentTarget.style.boxShadow = ""; e.currentTarget.style.borderColor = "rgba(231,226,71,0.09)"; }}
                 >
                   <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: "1rem" }}>
-                    {/* Route + driver */}
+                    {/* Segment route */}
                     <div style={{ display: "flex", gap: "1rem", flex: 1, minWidth: 220 }}>
                       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", paddingTop: "0.2rem", gap: 3 }}>
                         <div style={{ width: 9, height: 9, background: "#22c55e", borderRadius: "50%" }} />
@@ -207,8 +219,12 @@ export default function MyBookingsPage() {
                         <div style={{ width: 9, height: 9, background: "#e7e247", borderRadius: 2 }} />
                       </div>
                       <div style={{ flex: 1 }}>
-                        <div style={{ color: "#a1a1aa", fontSize: "0.8rem", marginBottom: "0.2rem" }}>{ride?.origin || "—"}</div>
-                        <div style={{ color: "#f4f4f5", fontSize: "0.92rem", fontWeight: 600, fontFamily: "Syne, sans-serif", marginBottom: "0.5rem" }}>{ride?.destination || "—"}</div>
+                        <div style={{ color: "#a1a1aa", fontSize: "0.8rem", marginBottom: "0.2rem" }}>
+                          {pickupName}
+                        </div>
+                        <div style={{ color: "#f4f4f5", fontSize: "0.92rem", fontWeight: 600, fontFamily: "Syne, sans-serif", marginBottom: "0.5rem" }}>
+                          {dropName}
+                        </div>
                         {ride?.driver && (
                           <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
                             <div style={{ width: 24, height: 24, background: "rgba(231,226,71,0.14)", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "Syne, sans-serif", fontWeight: 700, color: "#e7e247", fontSize: "0.7rem", flexShrink: 0 }}>
@@ -244,6 +260,16 @@ export default function MyBookingsPage() {
                           BK-{String(booking.id).padStart(5, "0")}
                         </span>
                       </div>
+                      {/* Payment status */}
+                      <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                        <span style={{ fontSize: "0.75rem" }}>💳</span>
+                        <span style={{
+                          fontSize: "0.72rem", fontWeight: 500,
+                          color: isPaid ? "#86efac" : "#fde68a",
+                        }}>
+                          {isPaid ? "Paid" : "Payment Pending"}
+                        </span>
+                      </div>
                     </div>
 
                     {/* Price + status + action */}
@@ -257,8 +283,10 @@ export default function MyBookingsPage() {
                         {isUpcoming ? "Upcoming" : "Completed"}
                       </span>
                       <div style={{ textAlign: "right" }}>
-                        <div style={{ fontFamily: "Syne, sans-serif", fontWeight: 800, fontSize: "1.2rem", color: "#e7e247" }}>₹{ride?.price || "—"}</div>
-                        <div style={{ color: "#52525b", fontSize: "0.7rem" }}>per seat</div>
+                        <div style={{ fontFamily: "Syne, sans-serif", fontWeight: 800, fontSize: "1.2rem", color: "#e7e247" }}>
+                          ₹{booking.price?.toFixed(2) ?? "—"}
+                        </div>
+                        <div style={{ color: "#52525b", fontSize: "0.7rem" }}>segment fare</div>
                       </div>
                       {isUpcoming && (
                         <button className="danger-btn" style={{ padding: "0.4rem 0.85rem" }} onClick={() => setConfirmId(booking.id)}>
@@ -271,8 +299,10 @@ export default function MyBookingsPage() {
                   {/* Confirmation strip */}
                   {isUpcoming && (
                     <div style={{ marginTop: "0.85rem", paddingTop: "0.75rem", borderTop: "1px solid rgba(255,255,255,0.05)", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                      <div style={{ width: 6, height: 6, background: "#22c55e", borderRadius: "50%" }} />
-                      <span style={{ color: "#52525b", fontSize: "0.75rem" }}>Confirmed · Check your email for ride details</span>
+                      <div style={{ width: 6, height: 6, background: isPaid ? "#22c55e" : "#fde68a", borderRadius: "50%" }} />
+                      <span style={{ color: "#52525b", fontSize: "0.75rem" }}>
+                        {isPaid ? "Confirmed · Check your email for ride details" : "Payment pending · Complete payment to confirm seat"}
+                      </span>
                     </div>
                   )}
                 </div>
@@ -283,7 +313,9 @@ export default function MyBookingsPage() {
 
         {bookings.length > 0 && (
           <div style={{ textAlign: "center", marginTop: "2.5rem", paddingTop: "1.5rem", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
-            <p style={{ color: "#52525b", fontSize: "0.82rem", marginBottom: "0.85rem" }}>Going somewhere? Share your journey and fill your seats.</p>
+            <p style={{ color: "#52525b", fontSize: "0.82rem", marginBottom: "0.85rem" }}>
+              Going somewhere? Share your journey and fill your seats.
+            </p>
             <button className="glow-btn" style={{ padding: "0.7rem 1.75rem", fontSize: "0.88rem" }} onClick={() => navigate("/post-ride")}>
               🚗 Post a Ride
             </button>

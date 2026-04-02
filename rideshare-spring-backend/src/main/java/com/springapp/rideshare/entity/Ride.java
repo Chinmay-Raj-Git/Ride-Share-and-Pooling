@@ -119,7 +119,7 @@ public class Ride {
 
     @OneToMany(mappedBy = "ride", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("stopOrder ASC")
-    private List<RouteStop> routeStops = new ArrayList<>();
+    private final List<RouteStop> routeStops = new ArrayList<>();
 
     public void addRouteStop(RouteStop stop) {
         routeStops.add(stop);

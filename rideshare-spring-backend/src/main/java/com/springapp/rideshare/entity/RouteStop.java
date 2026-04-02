@@ -39,8 +39,12 @@ public class RouteStop {
     @Column(nullable = false)
     private Double longitude;
 
+    @Column(nullable = false)
+    private Double cumulativeDistanceKm;
+
     // Constructors
-    public RouteStop() {}
+    public RouteStop() {
+    }
 
     public RouteStop(Ride ride, Integer stopOrder, String locationName, Double latitude, Double longitude) {
         this.ride = ride;
@@ -54,37 +58,56 @@ public class RouteStop {
     public Long getId() {
         return id;
     }
+
     public void setId(Long id) {
         this.id = id;
     }
+
     public Ride getRide() {
         return ride;
     }
+
     public void setRide(Ride ride) {
         this.ride = ride;
     }
+
     public Integer getStopOrder() {
         return stopOrder;
     }
+
     public void setStopOrder(Integer stopOrder) {
         this.stopOrder = stopOrder;
     }
+
     public String getLocationName() {
         return locationName;
     }
+
     public void setLocationName(String locationName) {
         this.locationName = locationName;
     }
+
     public Double getLatitude() {
         return latitude;
     }
+
     public void setLatitude(Double latitude) {
         this.latitude = latitude;
     }
+
     public Double getLongitude() {
         return longitude;
     }
+
     public void setLongitude(Double longitude) {
         this.longitude = longitude;
+    }
+
+    public Double getCumulativeDistanceKm() {
+        return cumulativeDistanceKm;
+    }
+
+    public void setCumulativeDistanceKm(Double cumulativeDistanceKm) {
+        this.cumulativeDistanceKm = cumulativeDistanceKm;
     }
 }

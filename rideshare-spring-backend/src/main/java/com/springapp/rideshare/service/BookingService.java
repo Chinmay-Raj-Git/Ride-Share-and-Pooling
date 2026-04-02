@@ -30,6 +30,9 @@ public class BookingService {
     @Autowired
     private RouteStopRepository routeStopRepository;
 
+    @Autowired
+    private FareService fareService;
+
     @Transactional
     public Booking bookRide(Long rideId, Long pickupStopId, Long dropStopId) {
 
@@ -38,49 +41,46 @@ public class BookingService {
         Ride ride = rideRepository.findById(rideId)
                 .orElseThrow(() -> new RuntimeException("Ride not found"));
 
+        if (ride.getDriver().getId().equals(user.getId())) {
+            throw new RuntimeException("Driver cannot book own ride");
+        }
+
         RouteStop pickup = routeStopRepository.findById(pickupStopId)
                 .orElseThrow(() -> new RuntimeException("Pickup stop not found"));
 
         RouteStop drop = routeStopRepository.findById(dropStopId)
                 .orElseThrow(() -> new RuntimeException("Drop stop not found"));
 
-        if (ride.getDriver().getId().equals(user.getId())) {
-            throw new RuntimeException("Driver cannot book own ride");
-        }
-
-        if (!pickup.getRide().getId().equals(rideId)
-                || !drop.getRide().getId().equals(rideId)) {
+        if (!pickup.getRide().getId().equals(rideId) || !drop.getRide().getId().equals(rideId)) {
             throw new RuntimeException("Stops do not belong to this ride");
         }
 
-        if (pickup.getId().equals(drop.getId())) {
-            throw new RuntimeException("Pickup and drop cannot be same");
-        }
-
         if (pickup.getStopOrder() >= drop.getStopOrder()) {
-            throw new RuntimeException("Invalid route selection");
+            throw new RuntimeException("Invalid route: pickup must come before drop");
         }
 
-        boolean alreadyBooked = bookingRepository.existsByRideAndPassenger(ride, user);
-        if (alreadyBooked) {
+        if (bookingRepository.existsByRideAndPassenger(ride, user)) {
             throw new RuntimeException("You have already booked this ride");
         }
 
-        if (ride.getAvailableSeats() <= 0) {
-            throw new RuntimeException("No seats available");
+        int overlapping = bookingRepository.countOverlappingBookings(
+                rideId, pickup.getStopOrder(), drop.getStopOrder());
+        if (overlapping >= ride.getAvailableSeats()) {
+            throw new RuntimeException("No seats available for this segment");
         }
+
+        double segmentPrice = fareService.calculateSegmentFare(ride, pickup, drop);
 
         Booking booking = new Booking();
         booking.setRide(ride);
         booking.setPassenger(user);
         booking.setPickupStop(pickup);
         booking.setDropStop(drop);
+        booking.setPrice(segmentPrice);
+        booking.setBookingTime(java.time.LocalDateTime.now());
 
-        // decrementing seat
-        ride.setAvailableSeats(ride.getAvailableSeats() - 1);
-
-        rideRepository.save(ride);
-
+        // ride.setAvailableSeats(ride.getAvailableSeats() - 1);
+        // rideRepository.save(ride); seat availability is checked via overlapping bookings, so we don't need to update it here
         return bookingRepository.save(booking);
     }
 
@@ -97,11 +97,6 @@ public class BookingService {
         if (!booking.getPassenger().getId().equals(passenger.getId())) {
             throw new RuntimeException("Not authorized to cancel this booking");
         }
-
-        Ride ride = booking.getRide();
-
-        ride.setAvailableSeats(ride.getAvailableSeats() + 1);
-        rideRepository.save(ride);
 
         bookingRepository.delete(booking);
     }

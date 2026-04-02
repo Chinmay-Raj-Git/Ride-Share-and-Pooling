@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.springapp.rideshare.dto.PassengerResponse;
 import com.springapp.rideshare.dto.RideRequest;
+import com.springapp.rideshare.dto.RideSearchResult;
 import com.springapp.rideshare.entity.Ride;
 import com.springapp.rideshare.entity.User;
 import com.springapp.rideshare.security.SecurityUtils;
@@ -43,7 +44,7 @@ public class RideController {
         ride.setDestination(request.getDestination());
         ride.setDepartureTime(request.getDepartureTime());
         ride.setAvailableSeats(request.getAvailableSeats());
-        ride.setPrice(request.getPrice());
+        // ride.setPrice(request.getPrice());  server-side price computation
 
         return rideService.createRide(ride, currentUser, request);
     }
@@ -54,7 +55,7 @@ public class RideController {
     }
 
     @GetMapping("/search")
-    public List<Ride> searchRides(
+    public List<RideSearchResult> searchRides(
             @RequestParam String origin,
             @RequestParam String destination) {
 

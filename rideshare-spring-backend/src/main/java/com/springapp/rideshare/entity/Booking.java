@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
@@ -39,6 +40,15 @@ public class Booking {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "drop_stop_id", nullable = false)
     private RouteStop dropStop;
+
+    @Column(nullable = false)
+    private Double price;
+
+    private String razorpayOrderId;
+    private String razorpayPaymentId;
+
+    @Column(nullable = false)
+    private String paymentStatus = "PENDING"; // PENDING, PAID
 
     public Booking() {
     }
@@ -85,6 +95,38 @@ public class Booking {
 
     public void setDropStop(RouteStop dropStop) {
         this.dropStop = dropStop;
+    }
+
+    public Double getPrice() {
+        return price;
+    }
+
+    public void setPrice(Double price) {
+        this.price = price;
+    }
+
+    public String getRazorpayOrderId() {
+        return razorpayOrderId;
+    }
+
+    public void setRazorpayOrderId(String razorpayOrderId) {
+        this.razorpayOrderId = razorpayOrderId;
+    }
+
+    public String getRazorpayPaymentId() {
+        return razorpayPaymentId;
+    }
+
+    public void setRazorpayPaymentId(String razorpayPaymentId) {
+        this.razorpayPaymentId = razorpayPaymentId;
+    }
+
+    public String getPaymentStatus() {
+        return paymentStatus;
+    }
+
+    public void setPaymentStatus(String paymentStatus) {
+        this.paymentStatus = paymentStatus;
     }
 
 }
