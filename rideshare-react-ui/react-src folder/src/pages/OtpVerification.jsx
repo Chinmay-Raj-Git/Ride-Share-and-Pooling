@@ -173,9 +173,7 @@ export default function OtpVerification() {
     setLoading(true);
     setError("");
     try {
-      const res = await apiRequest("/api/auth/verify-otp", "POST", { email, otp: otpValue });
-      console.log("OTP verification response:", res);
-      
+      await apiRequest("/api/auth/verify-otp", "POST", { email, otp: otpValue });
       setSuccess(true);
       localStorage.removeItem("pendingEmail");
     } catch {

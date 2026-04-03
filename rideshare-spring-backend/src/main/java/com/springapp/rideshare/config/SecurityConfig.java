@@ -28,8 +28,11 @@ public class SecurityConfig {
                 })
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/auth/**").permitAll()
-                .requestMatchers("/api/verify-otp").permitAll()
+                .requestMatchers("/api/auth/login").permitAll()
+                .requestMatchers("/api/auth/register").permitAll()
+                .requestMatchers("/api/auth/verify-otp").permitAll()
+                .requestMatchers("/api/reviews/*").permitAll()
+                .requestMatchers("/api/reviews").permitAll()
                 .requestMatchers("/api/rides").permitAll()
                 .requestMatchers("/api/hello").permitAll()
                 .requestMatchers("/h2-console/**").permitAll()

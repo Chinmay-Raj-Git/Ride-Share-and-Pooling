@@ -48,6 +48,7 @@ public class AuthController {
 
     @PostMapping("/verify-otp")
     public String verifyOtp(@RequestBody OtpRequest request) {
+        System.out.println("Received OTP verification request for email: " + request.getEmail() + " with OTP: " + request.getOtp());
         authService.verifyOtp(request);
         return "Email verified successfully";
     }

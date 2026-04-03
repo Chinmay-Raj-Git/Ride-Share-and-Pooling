@@ -6,17 +6,30 @@ import { PageShell, LoadingScreen, AlertBanner } from "../components/ui";
 import { useCurrentUser } from "../hooks/useCurrentUser";
 import { APP_STYLES } from "../styles";
 
+// ─── Star Display (read-only) ─────────────────────────────────────────────────
+function StarDisplay({ value }) {
+  const rounded = Math.round(value);
+  return (
+    <span style={{ display: "inline-flex", gap: "0.1rem" }}>
+      {[1, 2, 3, 4, 5].map((s) => (
+        <span key={s} style={{ fontSize: "0.9rem", color: s <= rounded ? "#e7e247" : "#3f3f46" }}>★</span>
+      ))}
+    </span>
+  );
+}
+
 export default function AdminPage() {
   const { user, loading } = useCurrentUser(true);
   const navigate = useNavigate();
 
-  const [tab, setTab]         = useState("reports");
-  const [reports, setReports] = useState(null);
-  const [users, setUsers]     = useState([]);
-  const [rides, setRides]     = useState([]);
+  const [tab, setTab]           = useState("reports");
+  const [reports, setReports]   = useState(null);
+  const [users, setUsers]       = useState([]);
+  const [rides, setRides]       = useState([]);
   const [bookings, setBookings] = useState([]);
+  const [reviewStats, setReviewStats] = useState([]);   // NEW: review analytics
   const [dataLoading, setDataLoading] = useState(false);
-  const [flash, setFlash]     = useState("");
+  const [flash, setFlash]       = useState("");
   const [flashType, setFlashType] = useState("ok");
 
   const showFlash = (msg, type = "ok") => {
@@ -50,6 +63,12 @@ export default function AdminPage() {
           const res = await apiRequest("/api/admin/bookings");
           if (res.ok) setBookings(await res.json());
           else showFlash("Failed to load bookings.", "err");
+        }
+        // NEW: load review stats
+        if (tab === "reviews") {
+          const res = await apiRequest("/api/admin/review-stats");
+          if (res.ok) setReviewStats(await res.json());
+          else showFlash("Failed to load review stats.", "err");
         }
       } catch {
         showFlash("Network error.", "err");
@@ -115,6 +134,7 @@ export default function AdminPage() {
             ["users",    "👥 Users"],
             ["rides",    "🚗 Rides"],
             ["bookings", "🎟 Bookings"],
+            ["reviews",  "⭐ Reviews"],   // NEW tab
           ].map(([k, l]) => (
             <button key={k} className={`tab-btn ${tab === k ? "on" : "off"}`} onClick={() => setTab(k)}>{l}</button>
           ))}
@@ -244,6 +264,64 @@ export default function AdminPage() {
                 </span>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* ── Reviews (NEW) ── */}
+        {tab === "reviews" && !dataLoading && (
+          <div>
+            <div style={{ marginBottom: "1.25rem" }}>
+              <p style={{ color: "#71717a", fontSize: "0.82rem", margin: 0 }}>
+                Drivers who have received at least one review, sorted by highest average rating.
+              </p>
+            </div>
+
+            {reviewStats.length === 0 ? (
+              <div style={{ color: "#52525b", fontSize: "0.85rem", padding: "2rem 0", textAlign: "center" }}>
+                No reviews have been submitted yet.
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                {reviewStats.map((stat, idx) => (
+                  <div key={stat.userId} style={{
+                    background: "rgba(61,59,48,0.28)", border: "1px solid rgba(255,255,255,0.06)",
+                    borderRadius: 10, padding: "0.85rem 1rem",
+                    display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap",
+                  }}>
+                    {/* Rank + user info */}
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                      <div style={{ width: 28, height: 28, background: idx === 0 ? "rgba(231,226,71,0.2)" : "rgba(255,255,255,0.05)", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "Syne, sans-serif", fontWeight: 700, color: idx === 0 ? "#e7e247" : "#52525b", fontSize: "0.8rem", flexShrink: 0 }}>
+                        {idx + 1}
+                      </div>
+                      <div style={{ width: 36, height: 36, background: "rgba(231,226,71,0.12)", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "Syne, sans-serif", fontWeight: 700, color: "#e7e247", fontSize: "0.85rem", flexShrink: 0 }}>
+                        {stat.name?.charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <div style={{ color: "#f4f4f5", fontWeight: 600, fontSize: "0.9rem" }}>{stat.name}</div>
+                        <div style={{ color: "#71717a", fontSize: "0.75rem" }}>{stat.email} · RS-{String(stat.userId).padStart(6, "0")}</div>
+                      </div>
+                    </div>
+
+                    {/* Rating + review count */}
+                    <div style={{ display: "flex", alignItems: "center", gap: "1.25rem", flexWrap: "wrap" }}>
+                      <div style={{ textAlign: "center" }}>
+                        <div style={{ fontFamily: "Syne, sans-serif", fontWeight: 800, fontSize: "1.4rem", color: "#e7e247", lineHeight: 1 }}>
+                          {stat.averageRating.toFixed(1)}
+                        </div>
+                        <StarDisplay value={stat.averageRating} />
+                        <div style={{ color: "#52525b", fontSize: "0.68rem", marginTop: "0.15rem" }}>avg rating</div>
+                      </div>
+                      <div style={{ textAlign: "center", minWidth: 60 }}>
+                        <div style={{ fontFamily: "Syne, sans-serif", fontWeight: 800, fontSize: "1.4rem", color: "#a1a1aa", lineHeight: 1 }}>
+                          {stat.totalReviews}
+                        </div>
+                        <div style={{ color: "#52525b", fontSize: "0.68rem", marginTop: "0.35rem" }}>review{stat.totalReviews !== 1 ? "s" : ""}</div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>

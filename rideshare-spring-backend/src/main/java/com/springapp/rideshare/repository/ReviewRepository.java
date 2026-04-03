@@ -17,6 +17,16 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
 
     Optional<Review> findByReviewerIdAndRideId(Long reviewerId, Long rideId);
 
+    // All reviews for a specific ride (used by driver to see passenger feedback)
+    List<Review> findByRideId(Long rideId);
+
     @Query("SELECT AVG(r.rating) FROM Review r WHERE r.reviewedUser.id = :userId")
     Double findAverageRatingByUserId(@Param("userId") Long userId);
+
+    @Query("SELECT COUNT(r) FROM Review r WHERE r.reviewedUser.id = :userId")
+    Long countByReviewedUserId(@Param("userId") Long userId);
+
+    // Average rating per driver across all rides (used by admin panel)
+    @Query("SELECT r.reviewedUser.id, AVG(r.rating), COUNT(r) FROM Review r GROUP BY r.reviewedUser.id")
+    List<Object[]> findAverageRatingGroupedByUser();
 }

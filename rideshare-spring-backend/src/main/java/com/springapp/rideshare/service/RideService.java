@@ -15,6 +15,7 @@ import com.springapp.rideshare.entity.RouteStop;
 import com.springapp.rideshare.entity.User;
 import com.springapp.rideshare.entity.Vehicle;
 import com.springapp.rideshare.repository.BookingRepository;
+import com.springapp.rideshare.repository.ReviewRepository;
 import com.springapp.rideshare.repository.RideRepository;
 import com.springapp.rideshare.repository.RouteStopRepository;
 import com.springapp.rideshare.repository.VehicleRepository;
@@ -32,11 +33,13 @@ public class RideService {
     private final BookingRepository bookingRepository;
     private final FareService fareService;
     private final BookingService bookingService;
+    private final ReviewRepository reviewRepository;
 
     public RideService(RideRepository rideRepository, VehicleRepository vehicleRepository,
             RouteStopRepository routeStopRepository, DistanceService distanceService,
             GeocodingService geocodingService, BookingRepository bookingRepository,
-            FareService fareService, BookingService bookingService) {
+            FareService fareService, BookingService bookingService,
+            ReviewRepository reviewRepository) {
         this.rideRepository = rideRepository;
         this.vehicleRepository = vehicleRepository;
         this.routeStopRepository = routeStopRepository;
@@ -45,6 +48,7 @@ public class RideService {
         this.bookingRepository = bookingRepository;
         this.fareService = fareService;
         this.bookingService = bookingService;
+        this.reviewRepository = reviewRepository;
     }
 
     public Ride createRide(Ride ride, User driver, RideRequest request) {
@@ -121,6 +125,9 @@ public class RideService {
             destMap.computeIfAbsent(stop.getRide().getId(), k -> new ArrayList<>()).add(stop);
         }
 
+        // Build a driver-id → average-rating map in a single query to avoid N+1 calls
+        Map<Long, Double> driverAvgRatingMap = buildDriverAverageRatingMap();
+
         List<RideSearchResult> result = new ArrayList<>();
 
         for (Long rideId : sourceMap.keySet()) {
@@ -136,7 +143,8 @@ public class RideService {
                                 rideId, src.getStopOrder(), dst.getStopOrder());
                         int availableSeats = ride.getAvailableSeats() - overlapping;
                         double fare = fareService.calculateSegmentFare(ride, src, dst);
-                        result.add(new RideSearchResult(ride, src, dst, availableSeats, fare));
+                        double avgRating = driverAvgRatingMap.getOrDefault(ride.getDriver().getId(), 0.0);
+                        result.add(new RideSearchResult(ride, src, dst, availableSeats, fare, avgRating));
                         break;
                     }
                 }
@@ -144,6 +152,23 @@ public class RideService {
         }
 
         return result;
+    }
+
+    /**
+     * Fetches all driver average ratings in one query and returns a map of
+     * driverId → averageRating. Avoids N+1 when building search results.
+     */
+    private Map<Long, Double> buildDriverAverageRatingMap() {
+        List<Object[]> rows = reviewRepository.findAverageRatingGroupedByUser();
+        Map<Long, Double> map = new HashMap<>();
+        for (Object[] row : rows) {
+            Long userId = (Long) row[0];
+            Double avg  = (Double) row[1];
+            if (userId != null && avg != null) {
+                map.put(userId, avg);
+            }
+        }
+        return map;
     }
 
     public List<Ride> getMyRides(User driver) {

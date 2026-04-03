@@ -38,15 +38,48 @@ public class ReviewController {
         }
     }
 
-    // GET /api/reviews/user/{userId} — list all reviews for a user
+    // GET /api/reviews/user/{userId} — list all reviews for a user (as driver)
     @GetMapping("/user/{userId}")
     public List<Review> getReviewsForUser(@PathVariable Long userId) {
         return reviewService.getReviewsForUser(userId);
     }
 
-    // GET /api/reviews/user/{userId}/average — average rating for a user
+    // GET /api/reviews/user/{userId}/average — average rating for a user as driver
     @GetMapping("/user/{userId}/average")
     public ResponseEntity<Double> getAverageRating(@PathVariable Long userId) {
         return ResponseEntity.ok(reviewService.getAverageRating(userId));
+    }
+
+    /**
+     * GET /api/reviews/my/{rideId}
+     * Returns the current user's own review for a given ride.
+     * 404 if not yet reviewed — frontend uses this to decide whether to show
+     * the review form or the submitted review display.
+     */
+    @GetMapping("/my/{rideId}")
+    public ResponseEntity<?> getMyReviewForRide(@PathVariable Long rideId) {
+        try {
+            User currentUser = SecurityUtils.getCurrentUser();
+            return reviewService.getMyReviewForRide(currentUser.getId(), rideId)
+                    .map(ResponseEntity::ok)
+                    .orElse(ResponseEntity.notFound().build());
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    /**
+     * GET /api/reviews/ride/{rideId}
+     * Returns all reviews for a specific ride.
+     * Used by the driver to see what each passenger rated/commented.
+     */
+    @GetMapping("/ride/{rideId}")
+    public ResponseEntity<?> getReviewsForRide(@PathVariable Long rideId) {
+        try {
+            List<Review> reviews = reviewService.getReviewsForRide(rideId);
+            return ResponseEntity.ok(reviews);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
     }
 }

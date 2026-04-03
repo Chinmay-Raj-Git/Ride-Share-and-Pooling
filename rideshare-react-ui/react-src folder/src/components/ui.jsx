@@ -74,21 +74,20 @@ export function Logo() {
     <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
       <div
         style={{
-          width: 48,
-          height: 48,
+          width: 32,
+          height: 32,
           background: "#e7e247",
           borderRadius: "50%",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
           flexShrink: 0,
-          padding: 2
         }}
       >
         <span
           style={{ fontFamily: "Syne, sans-serif", fontWeight: 800, fontSize: "0.85rem", color: "#1a1a16" }}
         >
-          <img src="../../public/rideshare_icon.ico" alt="" />
+          R
         </span>
       </div>
       <span style={{ fontFamily: "Syne, sans-serif", fontWeight: 700, fontSize: "1.05rem", color: "#f4f4f5" }}>

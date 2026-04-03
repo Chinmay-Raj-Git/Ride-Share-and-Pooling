@@ -26,7 +26,6 @@ export default function LoginPage() {
       const token = await apiRequest("/api/auth/login", "POST", { email, password }).then((r) =>
         r.text()
       );
-      console.log("Login response token:", token);
       localStorage.setItem("token", token);
       navigate("/rides");
     } catch (err) {

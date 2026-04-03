@@ -57,8 +57,6 @@ export default function RegisterPage() {
 
     setLoading(true);
     try {
-      // Clear any old token first
-      localStorage.removeItem("token");
       await apiRequest("/api/auth/register", "POST", {
         email: form.email,
         password: form.password,

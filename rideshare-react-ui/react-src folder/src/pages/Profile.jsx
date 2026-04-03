@@ -33,7 +33,7 @@ const EXTRA_STYLES = `
     box-shadow: 0 0 0 1px rgba(231,226,71,0.25);
   }
   .passenger-row {
-    display: flex; align-items: flex-start; gap: 0.75rem;
+    display: flex; align-items: center; gap: 0.75rem;
     padding: 0.6rem 0; border-bottom: 1px solid rgba(255,255,255,0.05);
   }
   .passenger-row:last-child { border-bottom: none; }
@@ -110,53 +110,18 @@ function AddVehicleForm({ onAdd, adding, addError, onCancel }) {
   );
 }
 
-// ─── Star Display (read-only) ─────────────────────────────────────────────────
-function StarDisplay({ value }) {
-  return (
-    <span style={{ display: "inline-flex", gap: "0.1rem" }}>
-      {[1, 2, 3, 4, 5].map((s) => (
-        <span key={s} style={{ fontSize: "0.95rem", color: s <= value ? "#e7e247" : "#3f3f46" }}>★</span>
-      ))}
-    </span>
-  );
-}
-
 // ─── Passengers Panel ─────────────────────────────────────────────────────────
-// ENHANCED: Also fetches GET /api/reviews/ride/{rideId} and maps reviewerId →
-// review so each passenger row can show their star rating and comment (if any).
 function PassengersPanel({ rideId }) {
   const [passengers, setPassengers] = useState(null);
-  const [reviewMap, setReviewMap]   = useState({});   // passengerId → Review
   const [loading, setLoading]       = useState(true);
   const [error, setError]           = useState("");
 
   useEffect(() => {
     const load = async () => {
       try {
-        // Fetch passengers and reviews in parallel
-        const [passRes, reviewRes] = await Promise.all([
-          apiRequest(`/api/rides/${rideId}/passengers`),
-          apiRequest(`/api/reviews/ride/${rideId}`),
-        ]);
-
-        if (passRes.ok) {
-          setPassengers(await passRes.json());
-        } else {
-          setError("Could not load passengers.");
-        }
-
-        if (reviewRes.ok) {
-          const reviews = await reviewRes.json();
-          // Build map: reviewer.id → review object
-          const map = {};
-          for (const r of reviews) {
-            if (r.reviewer?.id) {
-              map[r.reviewer.id] = r;
-            }
-          }
-          setReviewMap(map);
-        }
-        // If review fetch fails, just show passengers without ratings — not fatal
+        const res = await apiRequest(`/api/rides/${rideId}/passengers`);
+        if (res.ok) setPassengers(await res.json());
+        else setError("Could not load passengers.");
       } catch {
         setError("Could not load passengers.");
       } finally {
@@ -184,40 +149,20 @@ function PassengersPanel({ rideId }) {
       <p style={{ color: "#71717a", fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.06em", margin: "0 0 0.5rem 0" }}>
         Passengers ({passengers.length})
       </p>
-      {passengers.map((p) => {
-        const review = reviewMap[p.id];
-        return (
-          <div key={p.id} className="passenger-row">
-            {/* Avatar */}
-            <div style={{ width: 30, height: 30, background: "rgba(231,226,71,0.12)", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "Syne, sans-serif", fontWeight: 700, color: "#e7e247", fontSize: "0.78rem", flexShrink: 0 }}>
-              {p.name?.charAt(0).toUpperCase()}
-            </div>
-
-            {/* Name + contact + review */}
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ color: "#f4f4f5", fontSize: "0.85rem", fontWeight: 500 }}>{p.name}</div>
-              <div style={{ color: "#52525b", fontSize: "0.75rem" }}>{p.contact || "No contact"}</div>
-              {review ? (
-                <div style={{ marginTop: "0.3rem", display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
-                  <StarDisplay value={review.rating} />
-                  {review.comment && (
-                    <span style={{ color: "#a1a1aa", fontSize: "0.75rem", fontStyle: "italic" }}>
-                      "{review.comment}"
-                    </span>
-                  )}
-                </div>
-              ) : (
-                <div style={{ marginTop: "0.2rem", color: "#3f3f46", fontSize: "0.73rem" }}>No review yet</div>
-              )}
-            </div>
-
-            {/* Booking date */}
-            <div style={{ color: "#71717a", fontSize: "0.72rem", textAlign: "right", flexShrink: 0 }}>
-              Booked {new Date(p.bookingTime).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-            </div>
+      {passengers.map((p) => (
+        <div key={p.id} className="passenger-row">
+          <div style={{ width: 30, height: 30, background: "rgba(231,226,71,0.12)", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "Syne, sans-serif", fontWeight: 700, color: "#e7e247", fontSize: "0.78rem", flexShrink: 0 }}>
+            {p.name?.charAt(0).toUpperCase()}
           </div>
-        );
-      })}
+          <div style={{ flex: 1 }}>
+            <div style={{ color: "#f4f4f5", fontSize: "0.85rem", fontWeight: 500 }}>{p.name}</div>
+            <div style={{ color: "#52525b", fontSize: "0.75rem" }}>{p.contact || "No contact"}</div>
+          </div>
+          <div style={{ color: "#71717a", fontSize: "0.72rem", textAlign: "right" }}>
+            Booked {new Date(p.bookingTime).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -232,10 +177,8 @@ export default function ProfilePage() {
   const [saving, setSaving]             = useState(false);
   const [saveMsg, setSaveMsg]           = useState("");
   const [showAddVehicle, setShowAddVehicle] = useState(false);
+  // rideId → true/false whether passengers panel is open
   const [passengersOpen, setPassengersOpen] = useState({});
-  // rideId → "completing" | "cancelling" | null
-  const [rideAction, setRideAction]     = useState({});
-  const [rideMsg, setRideMsg]           = useState("");
 
   const { user, loading }                                     = useCurrentUser(true);
   const { vehicles, vehiclesLoading, addVehicle, adding, addError, setAddError } = useVehicles();
@@ -283,47 +226,6 @@ export default function ProfilePage() {
 
   const togglePassengers = (rideId) =>
     setPassengersOpen((prev) => ({ ...prev, [rideId]: !prev[rideId] }));
-
-  // ── Mark ride as completed ─────────────────────────────────────────────────
-  const handleCompleteRide = async (rideId) => {
-    setRideAction((p) => ({ ...p, [rideId]: "completing" }));
-    try {
-      const res = await apiRequest(`/api/rides/${rideId}/complete`, "POST");
-      if (res.ok) {
-        setMyRides((prev) => prev.map((r) => r.id === rideId ? { ...r, status: "COMPLETED" } : r));
-        setRideMsg("Ride marked as completed.");
-      } else {
-        const msg = await res.text();
-        setRideMsg("Error: " + msg);
-      }
-    } catch {
-      setRideMsg("Something went wrong.");
-    } finally {
-      setRideAction((p) => ({ ...p, [rideId]: null }));
-      setTimeout(() => setRideMsg(""), 4000);
-    }
-  };
-
-  // ── Cancel ride (notifies passengers) ────────────────────────────────────
-  const handleCancelRide = async (rideId) => {
-    if (!window.confirm("Cancel this ride? All passengers will be notified by email.")) return;
-    setRideAction((p) => ({ ...p, [rideId]: "cancelling" }));
-    try {
-      const res = await apiRequest(`/api/rides/${rideId}/cancel`, "DELETE");
-      if (res.ok) {
-        setMyRides((prev) => prev.map((r) => r.id === rideId ? { ...r, status: "CANCELLED" } : r));
-        setRideMsg("Ride cancelled. Passengers have been notified.");
-      } else {
-        const msg = await res.text();
-        setRideMsg("Error: " + msg);
-      }
-    } catch {
-      setRideMsg("Something went wrong.");
-    } finally {
-      setRideAction((p) => ({ ...p, [rideId]: null }));
-      setTimeout(() => setRideMsg(""), 4000);
-    }
-  };
 
   const setField = (k) => (e) => setEditForm((f) => ({ ...f, [k]: e.target.value }));
 
@@ -446,10 +348,6 @@ export default function ProfilePage() {
         ════════════════════════════════════════ */}
         {tab === "rides" && (
           <div className="fade-up">
-            {rideMsg && (
-              <AlertBanner message={rideMsg} type={rideMsg.startsWith("Error") ? "err" : "ok"} />
-            )}
-
             {ridesLoading ? (
               <div className="card-dark" style={{ padding: "3rem", textAlign: "center" }}>
                 <div style={{ width: 24, height: 24, border: "3px solid rgba(231,226,71,0.2)", borderTopColor: "#e7e247", borderRadius: "50%", animation: "spin 0.7s linear infinite", margin: "0 auto 0.75rem" }} />
@@ -467,15 +365,10 @@ export default function ProfilePage() {
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
                 {myRides.map((ride) => {
-                  const dt          = new Date(ride.departureTime);
-                  const isPast      = dt < new Date();
-                  const seats       = ride.availableSeats;
-                  const isOpen      = passengersOpen[ride.id];
-                  const status      = ride.status || "ACTIVE";
-                  const isCompleted = status === "COMPLETED";
-                  const isCancelled = status === "CANCELLED";
-                  const isActive    = status === "ACTIVE";
-                  const actionState = rideAction[ride.id];
+                  const dt     = new Date(ride.departureTime);
+                  const isPast = dt < new Date();
+                  const seats  = ride.availableSeats;
+                  const isOpen = passengersOpen[ride.id];
 
                   return (
                     <div key={ride.id} className="ride-row">
@@ -506,25 +399,22 @@ export default function ProfilePage() {
                               🚘 {ride.vehicle.model}
                             </span>
                           )}
-                          {/* Status badge */}
                           <span style={{
                             borderRadius: 6, fontSize: "0.7rem", fontWeight: 500, padding: "0.18rem 0.55rem",
-                            background: isCompleted ? "rgba(99,102,241,0.12)" : isCancelled ? "rgba(239,68,68,0.1)" : seats === 0 ? "rgba(239,68,68,0.1)" : isPast ? "rgba(113,113,122,0.1)" : "rgba(34,197,94,0.12)",
-                            color: isCompleted ? "#a5b4fc" : isCancelled ? "#fca5a5" : seats === 0 ? "#fca5a5" : isPast ? "#71717a" : "#86efac",
-                            border: `1px solid ${isCompleted ? "rgba(99,102,241,0.25)" : isCancelled ? "rgba(239,68,68,0.2)" : seats === 0 ? "rgba(239,68,68,0.2)" : isPast ? "rgba(113,113,122,0.15)" : "rgba(34,197,94,0.2)"}`,
+                            background: seats === 0 ? "rgba(239,68,68,0.1)" : isPast ? "rgba(113,113,122,0.1)" : "rgba(34,197,94,0.12)",
+                            color: seats === 0 ? "#fca5a5" : isPast ? "#71717a" : "#86efac",
+                            border: `1px solid ${seats === 0 ? "rgba(239,68,68,0.2)" : isPast ? "rgba(113,113,122,0.15)" : "rgba(34,197,94,0.2)"}`,
                           }}>
-                            {isCompleted ? "✅ Completed" : isCancelled ? "❌ Cancelled" : seats === 0 ? "Full" : isPast ? "Past" : "Active"}
+                            {seats === 0 ? "Full" : isPast ? "Past" : "Active"}
                           </span>
                         </div>
 
-                        {/* Price + actions */}
-                        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexShrink: 0, flexWrap: "wrap" }}>
+                        {/* Price + passengers toggle */}
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexShrink: 0 }}>
                           <div style={{ textAlign: "right" }}>
                             <div style={{ fontFamily: "Syne, sans-serif", fontWeight: 800, fontSize: "1.15rem", color: "#e7e247" }}>₹{ride.price}</div>
                             <div style={{ color: "#52525b", fontSize: "0.7rem" }}>per seat</div>
                           </div>
-
-                          {/* Passengers toggle — always visible */}
                           <button
                             className="ghost-btn"
                             style={{ padding: "0.35rem 0.75rem", fontSize: "0.75rem", whiteSpace: "nowrap" }}
@@ -532,36 +422,6 @@ export default function ProfilePage() {
                           >
                             {isOpen ? "▲ Hide" : "👥 Passengers"}
                           </button>
-
-                          {/* Mark Complete — only for ACTIVE rides */}
-                          {isActive && (
-                            <button
-                              className="glow-btn"
-                              style={{ padding: "0.35rem 0.75rem", fontSize: "0.73rem", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: "0.3rem" }}
-                              onClick={() => handleCompleteRide(ride.id)}
-                              disabled={!!actionState}
-                            >
-                              {actionState === "completing" && (
-                                <span style={{ width: 10, height: 10, border: "2px solid rgba(26,26,22,0.4)", borderTopColor: "#1a1a16", borderRadius: "50%", animation: "spin 0.7s linear infinite", display: "inline-block" }} />
-                              )}
-                              {actionState === "completing" ? "Completing…" : "✅ Mark Complete"}
-                            </button>
-                          )}
-
-                          {/* Cancel Ride — only for ACTIVE rides */}
-                          {isActive && (
-                            <button
-                              className="danger-btn"
-                              style={{ padding: "0.35rem 0.75rem", fontSize: "0.73rem", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: "0.3rem" }}
-                              onClick={() => handleCancelRide(ride.id)}
-                              disabled={!!actionState}
-                            >
-                              {actionState === "cancelling" && (
-                                <span style={{ width: 10, height: 10, border: "2px solid rgba(252,165,165,0.3)", borderTopColor: "#fca5a5", borderRadius: "50%", animation: "spin 0.7s linear infinite", display: "inline-block" }} />
-                              )}
-                              {actionState === "cancelling" ? "Cancelling…" : "❌ Cancel Ride"}
-                            </button>
-                          )}
                         </div>
                       </div>
 
@@ -631,6 +491,7 @@ export default function ProfilePage() {
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: "0.85rem", marginTop: "1rem" }}>
                 {vehicles.map((v) => (
                   <div key={v.id} className="vehicle-card">
+                    {/* Header row */}
                     <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "0.75rem" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
                         <div style={{ width: 36, height: 36, background: "rgba(231,226,71,0.12)", borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.1rem", flexShrink: 0 }}>
@@ -645,6 +506,8 @@ export default function ProfilePage() {
                         #{v.id}
                       </span>
                     </div>
+
+                    {/* Details */}
                     <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
                       <span style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 6, padding: "0.2rem 0.55rem", color: "#a1a1aa", fontSize: "0.75rem" }}>
                         🎨 {v.color}

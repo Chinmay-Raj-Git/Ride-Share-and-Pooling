@@ -7,7 +7,7 @@ export const apiRequest = async (endpoint, method = "GET", body = null) => {
         method,
         headers: {
             "Content-Type": "application/json",
-            ...(token && { Authorization: `Bearer ${token}` }),
+            ...((token && !endpoint.startsWith("/api/auth/", 0)) && { Authorization: `Bearer ${token}` }),
         },
         ...(body && { body: JSON.stringify(body) }),
     };

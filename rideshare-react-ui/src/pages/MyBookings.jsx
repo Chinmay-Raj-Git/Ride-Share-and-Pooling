@@ -17,7 +17,7 @@ const loadRazorpay = () =>
     document.body.appendChild(script);
   });
 
-// ─── Star Rating Input ────────────────────────────────────────────────────────
+// ─── Star Rating Input (interactive) ─────────────────────────────────────────
 function StarRating({ value, onChange }) {
   const [hovered, setHovered] = useState(0);
   return (
@@ -42,13 +42,56 @@ function StarRating({ value, onChange }) {
   );
 }
 
-// ─── Review Form (shown on past + paid bookings) ──────────────────────────────
+// ─── Star Display (read-only) ─────────────────────────────────────────────────
+function StarDisplay({ value }) {
+  return (
+    <div style={{ display: "flex", gap: "0.15rem" }}>
+      {[1, 2, 3, 4, 5].map((s) => (
+        <span
+          key={s}
+          style={{ fontSize: "1.1rem", color: s <= value ? "#e7e247" : "#3f3f46" }}
+        >
+          ★
+        </span>
+      ))}
+    </div>
+  );
+}
+
+// ─── Review Form ──────────────────────────────────────────────────────────────
+// FIX: On mount, fetches GET /api/reviews/my/{rideId} to check if a review
+// already exists. If it does, shows the submitted review instead of the form.
+// This ensures a page refresh doesn't re-show the review form.
 function ReviewForm({ rideId }) {
-  const [rating, setRating] = useState(0);
-  const [comment, setComment] = useState("");
-  const [submitted, setSubmitted] = useState(false);
+  const [rating, setRating]       = useState(0);
+  const [comment, setComment]     = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [err, setErr] = useState("");
+  const [err, setErr]             = useState("");
+
+  // null = loading, object = existing review, false = no review yet
+  const [existingReview, setExistingReview] = useState(null);
+  const [checkDone, setCheckDone] = useState(false);
+
+  // On mount, check if the user has already reviewed this ride
+  useEffect(() => {
+    const checkExisting = async () => {
+      try {
+        const res = await apiRequest(`/api/reviews/my/${rideId}`);
+        if (res.ok) {
+          const review = await res.json();
+          setExistingReview(review);
+        } else {
+          // 404 = not reviewed yet — that's fine
+          setExistingReview(false);
+        }
+      } catch {
+        setExistingReview(false);
+      } finally {
+        setCheckDone(true);
+      }
+    };
+    checkExisting();
+  }, [rideId]);
 
   const handleSubmit = async () => {
     if (rating === 0) { setErr("Please select a star rating."); return; }
@@ -57,7 +100,8 @@ function ReviewForm({ rideId }) {
     try {
       const res = await apiRequest("/api/reviews", "POST", { rideId, rating, comment });
       if (res.ok) {
-        setSubmitted(true);
+        const saved = await res.json();
+        setExistingReview(saved);
       } else {
         const msg = await res.text();
         setErr(msg || "Failed to submit review.");
@@ -69,14 +113,30 @@ function ReviewForm({ rideId }) {
     }
   };
 
-  if (submitted) {
+  // Still checking — show nothing to avoid flicker
+  if (!checkDone) return null;
+
+  // Already reviewed — show the submitted review
+  if (existingReview) {
     return (
-      <div style={{ marginTop: "0.85rem", paddingTop: "0.75rem", borderTop: "1px solid rgba(255,255,255,0.05)", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-        <span style={{ color: "#86efac", fontSize: "0.8rem" }}>✅ Review submitted — thanks for your feedback!</span>
+      <div style={{
+        marginTop: "0.85rem", paddingTop: "0.75rem",
+        borderTop: "1px solid rgba(255,255,255,0.05)",
+      }}>
+        <p style={{ color: "#71717a", fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.05em", margin: "0 0 0.5rem 0" }}>
+          Your Review
+        </p>
+        <StarDisplay value={existingReview.rating} />
+        {existingReview.comment && (
+          <p style={{ color: "#a1a1aa", fontSize: "0.8rem", margin: "0.4rem 0 0 0", fontStyle: "italic" }}>
+            "{existingReview.comment}"
+          </p>
+        )}
       </div>
     );
   }
 
+  // Not yet reviewed — show the form
   return (
     <div style={{ marginTop: "0.85rem", paddingTop: "0.75rem", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
       <p style={{ color: "#71717a", fontSize: "0.75rem", margin: "0 0 0.5rem 0" }}>
@@ -97,7 +157,9 @@ function ReviewForm({ rideId }) {
         onClick={handleSubmit}
         disabled={submitting}
       >
-        {submitting && <span style={{ width: 11, height: 11, border: "2px solid rgba(26,26,22,0.4)", borderTopColor: "#1a1a16", borderRadius: "50%", animation: "spin 0.7s linear infinite", display: "inline-block" }} />}
+        {submitting && (
+          <span style={{ width: 11, height: 11, border: "2px solid rgba(26,26,22,0.4)", borderTopColor: "#1a1a16", borderRadius: "50%", animation: "spin 0.7s linear infinite", display: "inline-block" }} />
+        )}
         {submitting ? "Submitting…" : "Submit Review"}
       </button>
     </div>
@@ -126,7 +188,9 @@ function ConfirmModal({ onConfirm, onCancel, cancelling }) {
             onClick={onConfirm}
             disabled={cancelling}
           >
-            {cancelling && <span style={{ width: 13, height: 13, border: "2px solid rgba(252,165,165,0.3)", borderTopColor: "#fca5a5", borderRadius: "50%", animation: "spin 0.7s linear infinite", display: "inline-block" }} />}
+            {cancelling && (
+              <span style={{ width: 13, height: 13, border: "2px solid rgba(252,165,165,0.3)", borderTopColor: "#fca5a5", borderRadius: "50%", animation: "spin 0.7s linear infinite", display: "inline-block" }} />
+            )}
             {cancelling ? "Cancelling…" : "Yes, Cancel"}
           </button>
         </div>
@@ -137,14 +201,14 @@ function ConfirmModal({ onConfirm, onCancel, cancelling }) {
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 export default function MyBookingsPage() {
-  const [bookings, setBookings] = useState([]);
+  const [bookings, setBookings]           = useState([]);
   const [bookingsLoading, setBookingsLoading] = useState(true);
-  const [filter, setFilter] = useState("all");
-  const [sortBy, setSortBy] = useState("newest");
-  const [flash, setFlash] = useState(null);
-  const [confirmId, setConfirmId] = useState(null);
-  const [cancelling, setCancelling] = useState(false);
-  const [payingId, setPayingId] = useState(null);
+  const [filter, setFilter]               = useState("all");
+  const [sortBy, setSortBy]               = useState("newest");
+  const [flash, setFlash]                 = useState(null);
+  const [confirmId, setConfirmId]         = useState(null);
+  const [cancelling, setCancelling]       = useState(false);
+  const [payingId, setPayingId]           = useState(null);
 
   const { user, loading } = useCurrentUser(true);
   const navigate = useNavigate();
@@ -256,7 +320,7 @@ export default function MyBookingsPage() {
     let result = bookings.map((b) => ({ ...b, deptDate: new Date(b.ride?.departureTime) }));
     if (filter === "upcoming") result = result.filter((b) => b.deptDate >= now);
     if (filter === "past")     result = result.filter((b) => b.deptDate < now);
-    if (sortBy === "newest")   result = [...result].sort((a, z) => new Date(z.bookingTime) - new Date(a.bookingTime));
+    if (sortBy === "newest")        result = [...result].sort((a, z) => new Date(z.bookingTime) - new Date(a.bookingTime));
     else if (sortBy === "oldest")    result = [...result].sort((a, z) => new Date(a.bookingTime) - new Date(z.bookingTime));
     else if (sortBy === "departure") result = [...result].sort((a, z) => a.deptDate - z.deptDate);
     return result;
@@ -356,10 +420,10 @@ export default function MyBookingsPage() {
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem" }}>
             {processed.map((booking) => {
-              const ride = booking.ride;
-              const isUpcoming = booking.deptDate >= now;
-              const bookDate   = new Date(booking.bookingTime);
-              const isPaid     = booking.paymentStatus === "PAID";
+              const ride          = booking.ride;
+              const isUpcoming    = booking.deptDate >= now;
+              const bookDate      = new Date(booking.bookingTime);
+              const isPaid        = booking.paymentStatus === "PAID";
               const isRideCompleted = ride?.status === "COMPLETED";
 
               const pickupName = booking.pickupStop?.locationName || "—";
@@ -482,7 +546,7 @@ export default function MyBookingsPage() {
                     </div>
                   )}
 
-                  {/* Review form — show for completed rides that were paid */}
+                  {/* Review section — show for completed + paid rides */}
                   {isRideCompleted && isPaid && (
                     <ReviewForm rideId={ride?.id} />
                   )}

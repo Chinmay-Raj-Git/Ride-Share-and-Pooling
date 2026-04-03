@@ -2,6 +2,7 @@ package com.springapp.rideshare.service;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.stereotype.Service;
 
@@ -65,6 +66,22 @@ public class ReviewService {
         return reviewRepository.save(review);
     }
 
+    /**
+     * Returns the review the given passenger submitted for a specific ride.
+     * Returns empty Optional if they haven't reviewed yet.
+     */
+    public Optional<Review> getMyReviewForRide(Long reviewerId, Long rideId) {
+        return reviewRepository.findByReviewerIdAndRideId(reviewerId, rideId);
+    }
+
+    /**
+     * Returns all reviews submitted for a specific ride.
+     * Used by the driver to see what each passenger said.
+     */
+    public List<Review> getReviewsForRide(Long rideId) {
+        return reviewRepository.findByRideId(rideId);
+    }
+
     public List<Review> getReviewsForUser(Long userId) {
         return reviewRepository.findByReviewedUserId(userId);
     }
@@ -72,5 +89,9 @@ public class ReviewService {
     public Double getAverageRating(Long userId) {
         Double avg = reviewRepository.findAverageRatingByUserId(userId);
         return avg != null ? avg : 0.0;
+    }
+
+    public Long getReviewCount(Long userId) {
+        return reviewRepository.countByReviewedUserId(userId);
     }
 }
